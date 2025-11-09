@@ -1,63 +1,47 @@
 import KanbanBoard from "@/components/KanbanBoard";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import type { Booking } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function KanbanView() {
-  const mockBookings = [
-    {
-      id: "1",
-      customerName: "Sarah Johnson",
-      packageType: "Standard Party",
-      eventDate: "2024-12-15",
-      eventTime: "2:00 PM",
-      status: "pending" as const,
-      partySize: 45,
-      email: "sarah@example.com",
-      phone: "(555) 123-4567"
+  const { toast } = useToast();
+  const { data: bookings = [], isLoading } = useQuery<Booking[]>({
+    queryKey: ["/api/bookings"],
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const res = await apiRequest("PATCH", `/api/bookings/${id}/status`, { status });
+      return await res.json();
     },
-    {
-      id: "2",
-      customerName: "Mike Stevens",
-      packageType: "Premium Party",
-      eventDate: "2024-12-20",
-      eventTime: "6:00 PM",
-      status: "confirmed" as const,
-      partySize: 80,
-      email: "mike@example.com",
-      phone: "(555) 987-6543"
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Status Updated",
+        description: "Booking status has been updated successfully.",
+      });
     },
-    {
-      id: "3",
-      customerName: "Emily Rodriguez",
-      packageType: "Basic Party",
-      eventDate: "2024-12-10",
-      eventTime: "12:00 PM",
-      status: "completed" as const,
-      partySize: 25,
-      email: "emily@example.com",
-      phone: "(555) 456-7890"
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update booking status. Please try again.",
+        variant: "destructive",
+      });
     },
-    {
-      id: "4",
-      customerName: "John Williams",
-      packageType: "Standard Party",
-      eventDate: "2024-12-18",
-      eventTime: "4:00 PM",
-      status: "pending" as const,
-      partySize: 50,
-      email: "john@example.com",
-      phone: "(555) 234-5678"
-    },
-    {
-      id: "5",
-      customerName: "Lisa Chen",
-      packageType: "Premium Party",
-      eventDate: "2024-12-22",
-      eventTime: "3:00 PM",
-      status: "confirmed" as const,
-      partySize: 100,
-      email: "lisa@example.com",
-      phone: "(555) 345-6789"
-    }
-  ];
+  });
+
+  const handleStatusChange = (bookingId: number, newStatus: string) => {
+    updateStatusMutation.mutate({ id: bookingId, status: newStatus });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <div className="text-muted-foreground">Loading kanban board...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-8">
@@ -66,7 +50,7 @@ export default function KanbanView() {
         <p className="text-muted-foreground">Manage your bookings by workflow stage</p>
       </div>
 
-      <KanbanBoard bookings={mockBookings} />
+      <KanbanBoard bookings={bookings} onStatusChange={handleStatusChange} />
     </div>
   );
 }

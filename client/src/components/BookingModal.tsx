@@ -9,6 +9,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { InsertBooking } from "@shared/schema";
 
 interface BookingModalProps {
   open: boolean;
@@ -28,11 +32,65 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     eventTime: "",
     notes: ""
   });
+  const { toast } = useToast();
+
+  const createBookingMutation = useMutation({
+    mutationFn: async (booking: InsertBooking) => {
+      const res = await apiRequest("POST", "/api/bookings", booking);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      toast({
+        title: "Booking Request Submitted!",
+        description: "We'll contact you within 24 hours to confirm your foam party.",
+      });
+      onOpenChange(false);
+      setFormData({
+        customerName: "",
+        email: "",
+        phone: "",
+        address: "",
+        partySize: "",
+        packageType: "",
+        eventTime: "",
+        notes: ""
+      });
+      setDate(undefined);
+    },
+    onError: () => {
+      toast({
+        title: "Booking Failed",
+        description: "There was an error submitting your booking. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Booking submitted:', { ...formData, eventDate: date });
-    onOpenChange(false);
+    if (!date) {
+      toast({
+        title: "Date Required",
+        description: "Please select an event date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const bookingData: InsertBooking = {
+      customerName: formData.customerName,
+      email: formData.email,
+      phone: formData.phone,
+      address: formData.address,
+      partySize: parseInt(formData.partySize),
+      packageType: formData.packageType,
+      eventDate: format(date, "yyyy-MM-dd"),
+      eventTime: formData.eventTime,
+      notes: formData.notes || null,
+    };
+
+    createBookingMutation.mutate(bookingData);
   };
 
   const updateField = (field: string, value: string) => {
@@ -198,12 +256,17 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
               type="button" 
               variant="outline" 
               onClick={() => onOpenChange(false)}
+              disabled={createBookingMutation.isPending}
               data-testid="button-cancel-booking"
             >
               Cancel
             </Button>
-            <Button type="submit" data-testid="button-submit-booking">
-              Submit Booking Request
+            <Button 
+              type="submit" 
+              disabled={createBookingMutation.isPending}
+              data-testid="button-submit-booking"
+            >
+              {createBookingMutation.isPending ? "Submitting..." : "Submit Booking Request"}
             </Button>
           </div>
         </form>

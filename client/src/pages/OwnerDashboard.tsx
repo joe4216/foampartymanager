@@ -1,40 +1,50 @@
 import DashboardStats from "@/components/DashboardStats";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import type { Booking } from "@shared/schema";
+import { Link } from "wouter";
+
+const packagePrices: Record<string, number> = {
+  "Basic Party": 199,
+  "Standard Party": 299,
+  "Premium Party": 499,
+};
 
 export default function OwnerDashboard() {
-  const recentBookings = [
-    {
-      id: "1",
-      customerName: "Sarah Johnson",
-      packageType: "Standard Party",
-      eventDate: "2024-12-15",
-      status: "confirmed" as const,
-      revenue: 299
-    },
-    {
-      id: "2",
-      customerName: "Mike Stevens",
-      packageType: "Premium Party",
-      eventDate: "2024-12-20",
-      status: "pending" as const,
-      revenue: 499
-    },
-    {
-      id: "3",
-      customerName: "Emily Rodriguez",
-      packageType: "Basic Party",
-      eventDate: "2024-12-18",
-      status: "confirmed" as const,
-      revenue: 199
-    },
-  ];
+  const { data: bookings = [], isLoading } = useQuery<Booking[]>({
+    queryKey: ["/api/bookings"],
+  });
 
-  const statusVariants = {
+  const statusVariants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
     pending: "secondary",
     confirmed: "default",
     completed: "outline",
+    cancelled: "destructive",
   };
+
+  const confirmedBookings = bookings.filter(b => b.status === "confirmed" || b.status === "pending");
+  const totalRevenue = confirmedBookings.reduce((sum, b) => sum + (packagePrices[b.packageType] || 0), 0);
+  const totalGuests = bookings.reduce((sum, b) => sum + b.partySize, 0);
+  const upcomingEvents = bookings.filter(b => 
+    new Date(b.eventDate) >= new Date() && (b.status === "confirmed" || b.status === "pending")
+  ).length;
+
+  const recentBookings = bookings
+    .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+    .slice(0, 5)
+    .map(b => ({
+      ...b,
+      revenue: packagePrices[b.packageType] || 0
+    }));
+
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <div className="text-muted-foreground">Loading dashboard...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-8">
@@ -44,10 +54,10 @@ export default function OwnerDashboard() {
       </div>
 
       <DashboardStats
-        totalBookings={127}
-        upcomingEvents={8}
-        totalRevenue={12450}
-        totalGuests={3240}
+        totalBookings={bookings.length}
+        upcomingEvents={upcomingEvents}
+        totalRevenue={totalRevenue}
+        totalGuests={totalGuests}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -56,30 +66,34 @@ export default function OwnerDashboard() {
             <CardTitle className="font-['Poppins']">Recent Bookings</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentBookings.map((booking) => (
-                <div
-                  key={booking.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
-                  data-testid={`recent-booking-${booking.id}`}
-                >
-                  <div className="flex-1">
-                    <div className="font-semibold mb-1">{booking.customerName}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {booking.packageType} - {booking.eventDate}
+            {recentBookings.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No bookings yet</p>
+            ) : (
+              <div className="space-y-4">
+                {recentBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                    data-testid={`recent-booking-${booking.id}`}
+                  >
+                    <div className="flex-1">
+                      <div className="font-semibold mb-1">{booking.customerName}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {booking.packageType} - {booking.eventDate}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="font-bold text-primary">${booking.revenue}</div>
+                      </div>
+                      <Badge variant={statusVariants[booking.status] || "secondary"}>
+                        {booking.status}
+                      </Badge>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="font-bold text-primary">${booking.revenue}</div>
-                    </div>
-                    <Badge variant={statusVariants[booking.status] as any}>
-                      {booking.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -89,23 +103,19 @@ export default function OwnerDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <button
-                className="w-full p-4 text-left border rounded-lg hover-elevate"
-                onClick={() => console.log('View calendar')}
-                data-testid="button-quick-calendar"
-              >
-                <div className="font-semibold mb-1">View Calendar</div>
-                <div className="text-sm text-muted-foreground">Check upcoming events</div>
-              </button>
+              <Link href="/owner/calendar">
+                <a className="block w-full p-4 text-left border rounded-lg hover-elevate" data-testid="button-quick-calendar">
+                  <div className="font-semibold mb-1">View Calendar</div>
+                  <div className="text-sm text-muted-foreground">Check upcoming events</div>
+                </a>
+              </Link>
               
-              <button
-                className="w-full p-4 text-left border rounded-lg hover-elevate"
-                onClick={() => console.log('Manage bookings')}
-                data-testid="button-quick-kanban"
-              >
-                <div className="font-semibold mb-1">Manage Bookings</div>
-                <div className="text-sm text-muted-foreground">Update booking status</div>
-              </button>
+              <Link href="/owner/kanban">
+                <a className="block w-full p-4 text-left border rounded-lg hover-elevate" data-testid="button-quick-kanban">
+                  <div className="font-semibold mb-1">Manage Bookings</div>
+                  <div className="text-sm text-muted-foreground">Update booking status</div>
+                </a>
+              </Link>
               
               <button
                 className="w-full p-4 text-left border rounded-lg hover-elevate"

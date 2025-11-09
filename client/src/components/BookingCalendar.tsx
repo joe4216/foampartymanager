@@ -4,15 +4,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useState } from "react";
 import { format } from "date-fns";
 
-interface Booking {
-  id: string;
-  customerName: string;
-  packageType: string;
-  eventDate: string;
-  eventTime: string;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
-  partySize: number;
-}
+import type { Booking } from "@shared/schema";
 
 const statusColors = {
   pending: "bg-yellow-500",
@@ -92,7 +84,7 @@ export default function BookingCalendar({ bookings }: BookingCalendarProps) {
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="font-semibold">{booking.customerName}</div>
                     <Badge variant="secondary" className="capitalize">
-                      {statusLabels[booking.status]}
+                      {statusLabels[booking.status as keyof typeof statusLabels]}
                     </Badge>
                   </div>
                   <div className="text-sm text-muted-foreground space-y-1">
