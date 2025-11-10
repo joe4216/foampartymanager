@@ -1,6 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sun, PartyPopper, Users, Calendar, Sparkles } from "lucide-react";
+import outdoorImage from "@assets/stock_images/tropical_summer_pool_02de404f.jpg";
+import celebrationImage from "@assets/stock_images/birthday_celebration_7766e39e.jpg";
+import familyImage from "@assets/stock_images/happy_family_kids_pl_605bcf99.jpg";
+import seasonalImage from "@assets/stock_images/halloween_party_cost_8a202d85.jpg";
+import uniqueImage from "@assets/stock_images/unique_creative_part_55427373.jpg";
 
 export default function PartyThemes() {
   const themes = {
@@ -8,6 +13,7 @@ export default function PartyThemes() {
       icon: Sun,
       title: "Outdoor & Summer",
       description: "Perfect for backyards, pools, or open fields",
+      image: outdoorImage,
       ideas: [
         {
           name: "Tropical Foam Luau",
@@ -35,6 +41,7 @@ export default function PartyThemes() {
       icon: PartyPopper,
       title: "Party & Celebration",
       description: "For birthdays, graduations, or just-for-fun gatherings",
+      image: celebrationImage,
       ideas: [
         {
           name: "Foam Fiesta",
@@ -58,6 +65,7 @@ export default function PartyThemes() {
       icon: Users,
       title: "Family & Kids-Friendly",
       description: "Keep it clean, colorful, and safe for little ones",
+      image: familyImage,
       ideas: [
         {
           name: "Foam Play Zone",
@@ -85,6 +93,7 @@ export default function PartyThemes() {
       icon: Calendar,
       title: "Themed & Seasonal",
       description: "Switch it up for holidays or special events",
+      image: seasonalImage,
       ideas: [
         {
           name: "Halloween \"Spooky Foam\" Party",
@@ -112,6 +121,7 @@ export default function PartyThemes() {
       icon: Sparkles,
       title: "Unique & Wildcard",
       description: "For when you want something truly different",
+      image: uniqueImage,
       ideas: [
         {
           name: "Silent Foam Disco",
@@ -165,11 +175,19 @@ export default function PartyThemes() {
           {Object.entries(themes).map(([key, theme]) => (
             <TabsContent key={key} value={key}>
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-2xl font-['Poppins']">{theme.title}</CardTitle>
-                  <CardDescription className="text-base">{theme.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
+                <div className="relative h-64 overflow-hidden rounded-t-lg">
+                  <img 
+                    src={theme.image} 
+                    alt={theme.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                    <h3 className="text-3xl font-bold font-['Poppins'] mb-2">{theme.title}</h3>
+                    <p className="text-white/90 text-lg">{theme.description}</p>
+                  </div>
+                </div>
+                <CardContent className="pt-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {theme.ideas.map((idea) => (
                       <Card key={idea.name} className="hover-elevate">
