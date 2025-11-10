@@ -35,7 +35,7 @@ export default function BookingCalendar({ bookings }: BookingCalendarProps) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-      <Card className="lg:col-span-2">
+      <Card className="lg:col-span-3">
         <CardHeader>
           <CardTitle className="font-['Poppins']">Event Calendar</CardTitle>
         </CardHeader>
@@ -44,7 +44,7 @@ export default function BookingCalendar({ bookings }: BookingCalendarProps) {
             mode="single"
             selected={selectedDate}
             onSelect={(date) => date && setSelectedDate(date)}
-            className="rounded-md border"
+            className="rounded-md border w-full"
             modifiers={{
               hasBooking: (date) => datesWithBookings.has(format(date, "yyyy-MM-dd"))
             }}
@@ -64,7 +64,7 @@ export default function BookingCalendar({ bookings }: BookingCalendarProps) {
         </CardContent>
       </Card>
 
-      <Card className="lg:col-span-3">
+      <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle className="font-['Poppins']">
             {format(selectedDate, "MMMM d, yyyy")}
