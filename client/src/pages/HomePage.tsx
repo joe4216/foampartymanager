@@ -82,10 +82,10 @@ export default function HomePage() {
         </div>
       </section>
       
+      <PartyThemes />
       <StatsBar />
       <FeaturedPackages onBookClick={handleBookClick} />
       <HowItWorks />
-      <PartyThemes />
       <Gallery />
       <Testimonials />
       
