@@ -6,13 +6,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { InsertBooking } from "@shared/schema";
+import type { InsertBooking, Booking } from "@shared/schema";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface BookingModalProps {
   open: boolean;
@@ -33,6 +34,32 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     notes: ""
   });
   const { toast } = useToast();
+
+  const { data: existingBookings = [], refetch } = useQuery<Booking[]>({
+    queryKey: ["/api/bookings"],
+    enabled: open,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  });
+
+  useEffect(() => {
+    if (open) {
+      refetch();
+    }
+  }, [open, refetch]);
+
+  const bookedDates = new Set(
+    existingBookings
+      .filter(b => b.status === "confirmed" || b.status === "pending")
+      .map(b => b.eventDate)
+  );
+
+  const isDateAvailable = (checkDate: Date) => {
+    const dateString = format(checkDate, "yyyy-MM-dd");
+    return !bookedDates.has(dateString);
+  };
+
+  const selectedDateAvailable = date ? isDateAvailable(date) : true;
 
   const createBookingMutation = useMutation({
     mutationFn: async (booking: InsertBooking) => {
@@ -73,6 +100,15 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       toast({
         title: "Date Required",
         description: "Please select an event date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isDateAvailable(date)) {
+      toast({
+        title: "Date Unavailable",
+        description: "This date is already booked. Please select another date.",
         variant: "destructive",
       });
       return;
@@ -207,15 +243,55 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
+                  <div className="p-3 border-b bg-muted/50">
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span>Available</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                        <span>Booked</span>
+                      </div>
+                    </div>
+                  </div>
                   <Calendar
                     mode="single"
                     selected={date}
                     onSelect={setDate}
                     initialFocus
-                    disabled={(date) => date < new Date()}
+                    disabled={(checkDate) => {
+                      const isPast = checkDate < new Date(new Date().setHours(0, 0, 0, 0));
+                      const dateString = format(checkDate, "yyyy-MM-dd");
+                      const isBooked = bookedDates.has(dateString);
+                      return isPast || isBooked;
+                    }}
+                    modifiers={{
+                      booked: (checkDate) => {
+                        const dateString = format(checkDate, "yyyy-MM-dd");
+                        return bookedDates.has(dateString);
+                      }
+                    }}
+                    modifiersStyles={{
+                      booked: {
+                        backgroundColor: "hsl(var(--destructive))",
+                        color: "hsl(var(--destructive-foreground))",
+                        fontWeight: "bold",
+                        textDecoration: "line-through"
+                      }
+                    }}
+                    data-testid="calendar-event-date"
                   />
                 </PopoverContent>
               </Popover>
+              {date && !selectedDateAvailable && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    This date is already booked. Please select another date.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
             
             <div className="space-y-2">

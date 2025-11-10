@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookingSchema } from "@shared/schema";
+import { insertBookingSchema, bookingStatusSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bookings", async (req, res) => {
@@ -40,21 +40,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/bookings/:id/status", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { status } = req.body;
-      
-      if (!status || !["pending", "confirmed", "completed", "cancelled"].includes(status)) {
-        res.status(400).json({ error: "Invalid status" });
-        return;
-      }
+      const validatedData = bookingStatusSchema.parse(req.body);
 
-      const booking = await storage.updateBookingStatus(id, status);
+      const booking = await storage.updateBookingStatus(id, validatedData.status);
       if (!booking) {
         res.status(404).json({ error: "Booking not found" });
         return;
       }
       res.json(booking);
     } catch (error) {
-      res.status(500).json({ error: "Failed to update booking" });
+      res.status(400).json({ error: "Invalid status value" });
     }
   });
 

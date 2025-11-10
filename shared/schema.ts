@@ -24,5 +24,10 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   status: true,
 });
 
+export const bookingStatusSchema = z.object({
+  status: z.enum(["pending", "confirmed", "completed", "cancelled"]),
+});
+
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;
+export type BookingStatus = z.infer<typeof bookingStatusSchema>;
