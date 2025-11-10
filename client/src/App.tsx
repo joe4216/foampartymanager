@@ -10,6 +10,9 @@ import HomePage from "@/pages/HomePage";
 import OwnerDashboard from "@/pages/OwnerDashboard";
 import CalendarView from "@/pages/CalendarView";
 import KanbanView from "@/pages/KanbanView";
+import AuthPage from "@/pages/AuthPage";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ProtectedRoute } from "@/lib/protected-route";
 
 function OwnerLayout({ children }: { children: React.ReactNode }) {
   const style = {
@@ -32,21 +35,31 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={HomePage} />
-      <Route path="/owner/dashboard">
-        <OwnerLayout>
-          <OwnerDashboard />
-        </OwnerLayout>
-      </Route>
-      <Route path="/owner/calendar">
-        <OwnerLayout>
-          <CalendarView />
-        </OwnerLayout>
-      </Route>
-      <Route path="/owner/kanban">
-        <OwnerLayout>
-          <KanbanView />
-        </OwnerLayout>
-      </Route>
+      <Route path="/auth" component={AuthPage} />
+      <ProtectedRoute 
+        path="/owner/dashboard" 
+        component={() => (
+          <OwnerLayout>
+            <OwnerDashboard />
+          </OwnerLayout>
+        )}
+      />
+      <ProtectedRoute 
+        path="/owner/calendar" 
+        component={() => (
+          <OwnerLayout>
+            <CalendarView />
+          </OwnerLayout>
+        )}
+      />
+      <ProtectedRoute 
+        path="/owner/kanban" 
+        component={() => (
+          <OwnerLayout>
+            <KanbanView />
+          </OwnerLayout>
+        )}
+      />
       <Route component={NotFound} />
     </Switch>
   );
@@ -55,10 +68,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

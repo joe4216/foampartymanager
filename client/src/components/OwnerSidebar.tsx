@@ -12,9 +12,16 @@ import {
 } from "@/components/ui/sidebar";
 import { LayoutDashboard, Calendar, Kanban, LogOut } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function OwnerSidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { logoutMutation } = useAuth();
+
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
+    setLocation("/");
+  };
 
   const menuItems = [
     { title: "Dashboard", icon: LayoutDashboard, url: "/owner/dashboard" },
@@ -50,11 +57,9 @@ export default function OwnerSidebar() {
       <SidebarFooter className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link href="/" data-testid="link-logout">
-                <LogOut className="w-4 h-4" />
-                <span>Back to Website</span>
-              </Link>
+            <SidebarMenuButton onClick={handleLogout} data-testid="button-logout">
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
