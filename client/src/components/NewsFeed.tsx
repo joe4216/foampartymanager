@@ -10,6 +10,7 @@ import partyImage3 from "@assets/stock_images/foam_party_concert_c_96f5780e.jpg"
 
 export default function NewsFeed() {
   const [selectedVideo, setSelectedVideo] = useState<number | null>(null);
+  const [hoveredVideo, setHoveredVideo] = useState<number | null>(null);
   
   const recentParties = [
     {
@@ -20,7 +21,7 @@ export default function NewsFeed() {
       attendees: "500+",
       description: "What an incredible night! Over 500 guests danced the night away in our massive foam pit. The energy was electric with DJ Mike spinning non-stop hits!",
       thumbnail: partyImage1,
-      videoUrl: "https://www.youtube.com/embed/JRfuAukYTKg",
+      videoUrl: "https://www.youtube.com/embed/DDtjbk1X0r8",
       likes: 247,
       category: "Concert"
     },
@@ -32,7 +33,7 @@ export default function NewsFeed() {
       attendees: "75",
       description: "Sarah's 21st birthday was one for the books! Tropical theme with colored foam, tiki torches, and endless smiles. Thanks for letting us be part of your special day!",
       thumbnail: partyImage2,
-      videoUrl: "https://www.youtube.com/embed/Tz8vDdN9S6g",
+      videoUrl: "https://www.youtube.com/embed/DDtjbk1X0r8",
       likes: 156,
       category: "Birthday"
     },
@@ -44,7 +45,7 @@ export default function NewsFeed() {
       attendees: "120",
       description: "When TechCorp wanted to boost team morale, they chose foam! Watch as executives and employees alike let loose in the ultimate team bonding experience.",
       thumbnail: partyImage3,
-      videoUrl: "https://www.youtube.com/embed/xFrGuyw1V8s",
+      videoUrl: "https://www.youtube.com/embed/DDtjbk1X0r8",
       likes: 98,
       category: "Corporate"
     }
@@ -65,25 +66,41 @@ export default function NewsFeed() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {recentParties.map((party) => (
             <Card key={party.id} className="hover-elevate overflow-hidden" data-testid={`card-party-${party.id}`}>
-              <div className="relative group">
+              <div 
+                className="relative group"
+                onMouseEnter={() => setHoveredVideo(party.id)}
+                onMouseLeave={() => setHoveredVideo(null)}
+              >
                 <div className="relative h-64 overflow-hidden">
-                  <img 
-                    src={party.thumbnail}
-                    alt={party.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Button 
-                      size="icon" 
-                      className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md border-white/30 text-white hover:bg-white/30"
-                      onClick={() => setSelectedVideo(party.id)}
-                      data-testid={`button-play-video-${party.id}`}
-                    >
-                      <Play className="w-8 h-8 ml-1" fill="currentColor" />
-                    </Button>
-                  </div>
-                  <div className="absolute top-4 right-4">
+                  {hoveredVideo === party.id ? (
+                    <iframe
+                      className="w-full h-full object-cover"
+                      src={`${party.videoUrl}?autoplay=1&mute=1&controls=0&loop=1&playlist=${party.videoUrl.split('/').pop()}`}
+                      title={party.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      data-testid={`iframe-hover-preview-${party.id}`}
+                    />
+                  ) : (
+                    <>
+                      <img 
+                        src={party.thumbnail}
+                        alt={party.title}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Button 
+                          size="icon" 
+                          className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md border-white/30 text-white hover:bg-white/30"
+                          onClick={() => setSelectedVideo(party.id)}
+                          data-testid={`button-play-video-${party.id}`}
+                        >
+                          <Play className="w-8 h-8 ml-1" fill="currentColor" />
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                  <div className="absolute top-4 right-4 z-10">
                     <Badge className="bg-primary/90 backdrop-blur-sm" data-testid={`badge-category-${party.id}`}>
                       {party.category}
                     </Badge>
