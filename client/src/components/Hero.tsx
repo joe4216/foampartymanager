@@ -44,7 +44,7 @@ export default function Hero() {
         </div>
         
         <h1 className="font-['Poppins'] text-5xl md:text-7xl lg:text-8xl font-extrabold text-white mb-6 leading-tight">
-          Foam Works<br />Party Co
+          Foam Works<br />Party Co.
         </h1>
         
         <p className="text-2xl md:text-4xl text-white font-bold mb-8 font-['Poppins']">Foam Around and Find Out</p>
