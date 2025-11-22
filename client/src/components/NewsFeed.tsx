@@ -3,13 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Calendar, MapPin, Users, ThumbsUp, Share2, X } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import partyImage1 from "@assets/stock_images/foam_party_concert_c_e76f1010.jpg";
 import partyImage2 from "@assets/stock_images/foam_party_concert_c_49509d2b.jpg";
 import partyImage3 from "@assets/stock_images/foam_party_concert_c_96f5780e.jpg";
 
 export default function NewsFeed() {
   const [selectedVideo, setSelectedVideo] = useState<number | null>(null);
+  
   const recentParties = [
     {
       id: 1,
@@ -19,7 +20,7 @@ export default function NewsFeed() {
       attendees: "500+",
       description: "What an incredible night! Over 500 guests danced the night away in our massive foam pit. The energy was electric with DJ Mike spinning non-stop hits!",
       thumbnail: partyImage1,
-      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      videoUrl: "https://www.youtube.com/embed/JRfuAukYTKg",
       likes: 247,
       category: "Concert"
     },
@@ -31,7 +32,7 @@ export default function NewsFeed() {
       attendees: "75",
       description: "Sarah's 21st birthday was one for the books! Tropical theme with colored foam, tiki torches, and endless smiles. Thanks for letting us be part of your special day!",
       thumbnail: partyImage2,
-      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      videoUrl: "https://www.youtube.com/embed/Tz8vDdN9S6g",
       likes: 156,
       category: "Birthday"
     },
@@ -43,7 +44,7 @@ export default function NewsFeed() {
       attendees: "120",
       description: "When TechCorp wanted to boost team morale, they chose foam! Watch as executives and employees alike let loose in the ultimate team bonding experience.",
       thumbnail: partyImage3,
-      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      videoUrl: "https://www.youtube.com/embed/xFrGuyw1V8s",
       likes: 98,
       category: "Corporate"
     }
@@ -144,6 +145,12 @@ export default function NewsFeed() {
 
       <Dialog open={selectedVideo !== null} onOpenChange={() => setSelectedVideo(null)}>
         <DialogContent className="max-w-4xl p-0" data-testid="dialog-video-player">
+          <DialogTitle className="sr-only">
+            {selectedVideo && recentParties.find(p => p.id === selectedVideo)?.title}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Watch highlights from this foam party event
+          </DialogDescription>
           <div className="relative pt-[56.25%]">
             {selectedVideo && (
               <iframe
