@@ -9,7 +9,7 @@ import Testimonials from "@/components/Testimonials";
 import BookingModal from "@/components/BookingModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Phone, Mail, MapPin, ShieldCheck, Droplet, Wind, Sparkles } from "lucide-react";
+import { Phone, Mail, MapPin, ShieldCheck, Droplet, Wind, Sparkles, Leaf, Heart } from "lucide-react";
 import { Link } from "wouter";
 
 export default function HomePage() {
@@ -19,6 +19,10 @@ export default function HomePage() {
   const handleBookClick = (packageType: string) => {
     setSelectedPackage(packageType);
     setBookingModalOpen(true);
+  };
+
+  const slugify = (text: string): string => {
+    return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   };
 
   const safetyFeatures = [
@@ -40,7 +44,17 @@ export default function HomePage() {
     {
       icon: Sparkles,
       title: "Non-Toxic",
-      description: "Biodegradable and eco-friendly"
+      description: "Safe, gentle formula for everyone"
+    },
+    {
+      icon: Leaf,
+      title: "Biodegradable",
+      description: "Eco-friendly and environmentally safe"
+    },
+    {
+      icon: Heart,
+      title: "Hypoallergenic",
+      description: "Perfect for sensitive skin"
     }
   ];
 
@@ -59,19 +73,20 @@ export default function HomePage() {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-6">
             {safetyFeatures.map((feature) => {
               const Icon = feature.icon;
+              const slug = slugify(feature.title);
               return (
-                <Card key={feature.title} className="hover-elevate">
+                <Card key={feature.title} className="hover-elevate" data-testid={`card-safety-${slug}`}>
                   <CardContent className="p-6 text-center">
                     <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Icon className="w-8 h-8 text-primary" />
                     </div>
-                    <h3 className="text-xl font-semibold font-['Poppins'] mb-2">
+                    <h3 className="text-xl font-semibold font-['Poppins'] mb-2" data-testid={`text-${slug}-title`}>
                       {feature.title}
                     </h3>
-                    <p className="text-muted-foreground">
+                    <p className="text-muted-foreground" data-testid={`text-${slug}-description`}>
                       {feature.description}
                     </p>
                   </CardContent>
