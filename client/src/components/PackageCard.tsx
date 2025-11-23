@@ -25,9 +25,11 @@ export default function PackageCard({
   return (
     <Card className="hover-elevate relative h-full flex flex-col" data-testid={`card-package-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       {popular && (
-        <Badge className="absolute top-4 right-4 z-10 bg-primary text-primary-foreground">
-          Most Popular
-        </Badge>
+        <div className="absolute top-0 left-0 right-0 flex justify-center -translate-y-1/2 z-10">
+          <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-sm font-semibold shadow-lg">
+            Most Popular
+          </Badge>
+        </div>
       )}
       <CardHeader className="pb-4">
         <div className="text-center space-y-2">
