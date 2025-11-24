@@ -2,6 +2,7 @@ import PackageCard from "./PackageCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
 import quickFoamImage from "@assets/Image (1)_1763957918375.jpg";
+import classicPartyImage from "@assets/Image (3)_1763958115216.png";
 import standardGlowImage from "@assets/Image_1763956231086.jpg";
 import extendedGlowImage from "@assets/images_1763957656153.jpg";
 
@@ -127,14 +128,20 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
         <div className="mb-16">
           <h3 className="text-3xl font-bold font-['Poppins'] text-center mb-8">Standard Foam Parties</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {standardPackages.map((pkg, index) => (
-              <PackageCard
-                key={pkg.title}
-                {...pkg}
-                image={index === 0 ? quickFoamImage : undefined}
-                onBook={() => onBookClick(pkg.title)}
-              />
-            ))}
+            {standardPackages.map((pkg, index) => {
+              let image;
+              if (index === 0) image = quickFoamImage;
+              else if (index === 1) image = classicPartyImage;
+              
+              return (
+                <PackageCard
+                  key={pkg.title}
+                  {...pkg}
+                  image={image}
+                  onBook={() => onBookClick(pkg.title)}
+                />
+              );
+            })}
           </div>
         </div>
 
