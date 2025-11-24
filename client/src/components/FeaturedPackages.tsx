@@ -143,7 +143,6 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
                 alt="Glow Foam Party"
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/70" />
               <CardContent className="relative h-full flex flex-col items-center justify-center text-center p-6">
                 <Sparkles className="w-12 h-12 md:w-16 md:h-16 text-primary mb-3" />
                 <h3 className="text-2xl md:text-4xl font-bold font-['Poppins'] text-white mb-2">
