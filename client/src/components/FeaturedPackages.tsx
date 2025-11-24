@@ -50,6 +50,36 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
     }
   ];
 
+  const glowFoamPackages = [
+    {
+      title: "Standard Glow Foam",
+      price: "+$125",
+      duration: "Add-on",
+      features: [
+        "UV-reactive foam solution",
+        "Glows under blacklights",
+        "Creates neon spectacle",
+        "Perfect for night parties",
+        "Unforgettable photos"
+      ],
+      description: "Transform any foam party into a magical glowing experience"
+    },
+    {
+      title: "Extended Glow Foam",
+      price: "+$200",
+      duration: "Add-on",
+      features: [
+        "UV-reactive foam solution",
+        "Extended glow time",
+        "Multiple color options",
+        "Enhanced lighting effects",
+        "Premium photo opportunities",
+        "Perfect for larger events"
+      ],
+      description: "Maximum glow impact for extended parties and bigger celebrations"
+    }
+  ];
+
   const genderRevealPackages = [
     {
       title: "Surprise in Style",
@@ -106,28 +136,34 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
         </div>
 
         <div className="mb-16">
-          <Card className="overflow-hidden hover-elevate relative">
-            <div className="relative h-64 md:h-80">
+          <Card className="overflow-hidden relative mb-8">
+            <div className="relative h-48 md:h-64">
               <img 
                 src={glowFoamImage}
                 alt="Glow Foam Party"
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/70" />
-              <CardContent className="relative h-full flex flex-col items-center justify-center text-center p-8">
-                <Sparkles className="w-16 h-16 text-primary mb-4" />
-                <h3 className="text-3xl md:text-4xl font-bold font-['Poppins'] text-white mb-3">
+              <CardContent className="relative h-full flex flex-col items-center justify-center text-center p-6">
+                <Sparkles className="w-12 h-12 md:w-16 md:h-16 text-primary mb-3" />
+                <h3 className="text-2xl md:text-4xl font-bold font-['Poppins'] text-white mb-2">
                   Add Glow Foam
                 </h3>
-                <p className="text-lg md:text-xl font-semibold text-primary mb-2">
-                  +$125
-                </p>
-                <p className="text-white/90 max-w-2xl text-base md:text-lg">
+                <p className="text-white/90 max-w-2xl text-sm md:text-lg">
                   Transform your party into a magical glowing experience! Our special UV-reactive foam creates an unforgettable neon spectacle.
                 </p>
               </CardContent>
             </div>
           </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {glowFoamPackages.map((pkg) => (
+              <PackageCard
+                key={pkg.title}
+                {...pkg}
+                onBook={() => onBookClick(pkg.title)}
+              />
+            ))}
+          </div>
         </div>
 
         <div>
