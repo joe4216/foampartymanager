@@ -136,6 +136,7 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
         </div>
 
         <div className="mb-16">
+          <h3 className="text-3xl font-bold font-['Poppins'] text-center mb-8">Glow Foam Add-On</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {glowFoamPackages.map((pkg) => (
               <PackageCard
