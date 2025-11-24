@@ -160,6 +160,7 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
               <PackageCard
                 key={pkg.title}
                 {...pkg}
+                image={glowFoamImage}
                 onBook={() => onBookClick(pkg.title)}
               />
             ))}

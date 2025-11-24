@@ -10,6 +10,7 @@ interface PackageCardProps {
   features: string[];
   description: string;
   popular?: boolean;
+  image?: string;
   onBook: () => void;
 }
 
@@ -20,15 +21,26 @@ export default function PackageCard({
   features,
   description,
   popular,
+  image,
   onBook
 }: PackageCardProps) {
   return (
-    <Card className="hover-elevate relative h-full flex flex-col" data-testid={`card-package-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <Card className="hover-elevate relative h-full flex flex-col overflow-hidden" data-testid={`card-package-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       {popular && (
         <div className="absolute top-0 left-0 right-0 flex justify-center -translate-y-1/2 z-10">
           <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-sm font-semibold shadow-lg">
             Most Popular
           </Badge>
+        </div>
+      )}
+      {image && (
+        <div className="relative h-48">
+          <img 
+            src={image}
+            alt={title}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
         </div>
       )}
       <CardHeader className="pb-4">
