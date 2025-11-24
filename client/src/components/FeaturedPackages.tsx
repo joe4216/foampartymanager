@@ -1,7 +1,8 @@
 import PackageCard from "./PackageCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
-import glowFoamImage from "@assets/images_1763957656153.jpg";
+import standardGlowImage from "@assets/Image_1763956231086.jpg";
+import extendedGlowImage from "@assets/images_1763957656153.jpg";
 
 interface FeaturedPackagesProps {
   onBookClick: (packageType: string) => void;
@@ -138,11 +139,11 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
         <div className="mb-16">
           <h3 className="text-3xl font-bold font-['Poppins'] text-center mb-8">Glow Foam Add-On</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {glowFoamPackages.map((pkg) => (
+            {glowFoamPackages.map((pkg, index) => (
               <PackageCard
                 key={pkg.title}
                 {...pkg}
-                image={glowFoamImage}
+                image={index === 0 ? standardGlowImage : extendedGlowImage}
                 onBook={() => onBookClick(pkg.title)}
               />
             ))}
