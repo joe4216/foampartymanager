@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
 import quickFoamImage from "@assets/Image (1)_1763957918375.jpg";
 import classicPartyImage from "@assets/Image (3)_1763958115216.png";
+import extendedFoamImage from "@assets/Image (2)_1763958218074.jpg";
 import standardGlowImage from "@assets/Image_1763956231086.jpg";
 import extendedGlowImage from "@assets/images_1763957656153.jpg";
 
@@ -132,6 +133,7 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
               let image;
               if (index === 0) image = quickFoamImage;
               else if (index === 1) image = classicPartyImage;
+              else if (index === 2) image = extendedFoamImage;
               
               return (
                 <PackageCard
