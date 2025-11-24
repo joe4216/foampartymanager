@@ -6,6 +6,7 @@ import classicPartyImage from "@assets/Image (3)_1763958115216.png";
 import extendedFoamImage from "@assets/Image (2)_1763958218074.jpg";
 import standardGlowImage from "@assets/Image_1763956231086.jpg";
 import extendedGlowImage from "@assets/images_1763957656153.jpg";
+import genderRevealBlueImage from "@assets/Image (3)_1763958344619.jpg";
 
 interface FeaturedPackagesProps {
   onBookClick: (packageType: string) => void;
@@ -164,10 +165,11 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
         <div>
           <h3 className="text-3xl font-bold font-['Poppins'] text-center mb-8">Gender Reveal Parties</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {genderRevealPackages.map((pkg) => (
+            {genderRevealPackages.map((pkg, index) => (
               <PackageCard
                 key={pkg.title}
                 {...pkg}
+                image={index === 0 ? genderRevealBlueImage : undefined}
                 onBook={() => onBookClick(pkg.title)}
               />
             ))}
