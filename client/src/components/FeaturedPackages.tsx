@@ -7,6 +7,7 @@ import extendedFoamImage from "@assets/Image (2)_1763958218074.jpg";
 import standardGlowImage from "@assets/Image_1763956231086.jpg";
 import extendedGlowImage from "@assets/images_1763957656153.jpg";
 import genderRevealBlueImage from "@assets/Image (3)_1763958344619.jpg";
+import genderRevealPinkImage from "@assets/generated_images/pink_gender_reveal_foam_party.png";
 
 interface FeaturedPackagesProps {
   onBookClick: (packageType: string) => void;
@@ -169,7 +170,7 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
               <PackageCard
                 key={pkg.title}
                 {...pkg}
-                image={index === 0 ? genderRevealBlueImage : undefined}
+                image={index === 0 ? genderRevealBlueImage : genderRevealPinkImage}
                 onBook={() => onBookClick(pkg.title)}
               />
             ))}
