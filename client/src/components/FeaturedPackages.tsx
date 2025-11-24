@@ -1,5 +1,7 @@
 import PackageCard from "./PackageCard";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Sparkles } from "lucide-react";
+import glowFoamImage from "@assets/Image_1763956231086.jpg";
 
 interface FeaturedPackagesProps {
   onBookClick: (packageType: string) => void;
@@ -91,10 +93,7 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
         </div>
 
         <div className="mb-16">
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <h3 className="text-3xl font-bold font-['Poppins']">Standard Foam Parties</h3>
-            <Badge variant="secondary" className="text-sm">Add Glow Foam +$125</Badge>
-          </div>
+          <h3 className="text-3xl font-bold font-['Poppins'] text-center mb-8">Standard Foam Parties</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {standardPackages.map((pkg) => (
               <PackageCard
@@ -104,6 +103,31 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
               />
             ))}
           </div>
+        </div>
+
+        <div className="mb-16">
+          <Card className="overflow-hidden hover-elevate relative">
+            <div className="relative h-64 md:h-80">
+              <img 
+                src={glowFoamImage}
+                alt="Glow Foam Party"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/70" />
+              <CardContent className="relative h-full flex flex-col items-center justify-center text-center p-8">
+                <Sparkles className="w-16 h-16 text-primary mb-4" />
+                <h3 className="text-3xl md:text-4xl font-bold font-['Poppins'] text-white mb-3">
+                  Add Glow Foam
+                </h3>
+                <p className="text-lg md:text-xl font-semibold text-primary mb-2">
+                  +$125
+                </p>
+                <p className="text-white/90 max-w-2xl text-base md:text-lg">
+                  Transform your party into a magical glowing experience! Our special UV-reactive foam creates an unforgettable neon spectacle.
+                </p>
+              </CardContent>
+            </div>
+          </Card>
         </div>
 
         <div>
