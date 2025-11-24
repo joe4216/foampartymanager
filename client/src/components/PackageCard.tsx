@@ -25,7 +25,7 @@ export default function PackageCard({
   onBook
 }: PackageCardProps) {
   return (
-    <Card className="hover-elevate relative h-full flex flex-col overflow-hidden" data-testid={`card-package-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <Card className="hover-elevate relative h-full flex flex-col" data-testid={`card-package-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       {popular && (
         <div className="absolute top-0 left-0 right-0 flex justify-center -translate-y-1/2 z-10">
           <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-sm font-semibold shadow-lg">
@@ -34,7 +34,7 @@ export default function PackageCard({
         </div>
       )}
       {image && (
-        <div className="relative h-48">
+        <div className="relative h-48 overflow-hidden rounded-t-xl">
           <img 
             src={image}
             alt={title}
