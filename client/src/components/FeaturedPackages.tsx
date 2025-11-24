@@ -1,7 +1,7 @@
 import PackageCard from "./PackageCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
-import glowFoamImage from "@assets/Image_1763956231086.jpg";
+import glowFoamImage from "@assets/images_1763957656153.jpg";
 
 interface FeaturedPackagesProps {
   onBookClick: (packageType: string) => void;
