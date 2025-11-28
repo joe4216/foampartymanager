@@ -194,6 +194,16 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     return bookingsByDate.get(dateString)?.size || 0;
   };
 
+  const isFormComplete = 
+    formData.customerName.trim() !== "" &&
+    formData.email.trim() !== "" &&
+    formData.phone.trim() !== "" &&
+    formData.partySize.trim() !== "" &&
+    formData.address.trim() !== "" &&
+    formData.packageType !== "" &&
+    formData.eventTime !== "" &&
+    date !== undefined;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -473,7 +483,8 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             </Button>
             <Button 
               type="submit" 
-              disabled={createBookingMutation.isPending}
+              disabled={!isFormComplete || createBookingMutation.isPending}
+              className={!isFormComplete ? "bg-muted text-muted-foreground hover:bg-muted" : ""}
               data-testid="button-submit-booking"
             >
               {createBookingMutation.isPending ? "Submitting..." : "Submit Booking Request"}
