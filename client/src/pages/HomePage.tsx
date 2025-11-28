@@ -186,7 +186,7 @@ export default function HomePage() {
               <h4 className="font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-muted-foreground">
                 <li>(256) 505-2129</li>
-                <li>party@sandmountainfoam.com</li>
+                <li>Jacee021798@gmail.com</li>
               </ul>
             </div>
           </div>
