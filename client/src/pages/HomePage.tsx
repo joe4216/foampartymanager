@@ -61,7 +61,6 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       <Hero />
-      
       <section className="py-16 bg-background">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
           <div className="text-center mb-12">
@@ -96,14 +95,12 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      
       <NewsFeed />
       <StatsBar />
       <FeaturedPackages onBookClick={handleBookClick} />
       <HowItWorks />
       <Gallery />
       <Testimonials />
-      
       <div id="booking-section" className="py-16 md:py-24 bg-gradient-to-br from-primary/10 to-primary/5">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -122,7 +119,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <div className="font-semibold">Call Us</div>
-                    <a href="tel:555-FOAM-FUN" className="text-muted-foreground hover:text-primary">(555) FOAM-FUN</a>
+                    <a href="tel:555-FOAM-FUN" className="text-muted-foreground hover:text-primary">(256) 505-2129</a>
                   </div>
                 </div>
                 
@@ -167,7 +164,6 @@ export default function HomePage() {
           </div>
         </div>
       </div>
-
       <footer className="bg-card border-t py-12">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -199,7 +195,6 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-
       <BookingModal
         open={bookingModalOpen}
         onOpenChange={setBookingModalOpen}
