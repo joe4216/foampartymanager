@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles, User } from "lucide-react";
+import { SiFacebook, SiInstagram } from "react-icons/si";
 import { Link } from "wouter";
 import heroImage from "@assets/generated_images/Hero_foam_party_scene_c579c411.png";
 
@@ -23,18 +24,39 @@ export default function Hero() {
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/60" />
       <nav className="absolute top-0 left-0 right-0 z-20 px-4 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="text-white font-bold text-xl font-['Poppins']">Foam Works Party Co.
-</div>
-          <Link href="/auth">
-            <Button 
-              variant="outline" 
-              className="bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white/20"
-              data-testid="button-owner-signin"
-            >
-              <User className="w-4 h-4 mr-2" />
-              Owner Sign In
-            </Button>
-          </Link>
+          <div className="text-white font-bold text-xl font-['Poppins']">Foam Works Party Co.</div>
+          <div className="flex flex-col items-end gap-3">
+            <Link href="/auth">
+              <Button 
+                variant="outline" 
+                className="bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white/20"
+                data-testid="button-owner-signin"
+              >
+                <User className="w-4 h-4 mr-2" />
+                Owner Sign In
+              </Button>
+            </Link>
+            <div className="flex flex-col gap-2">
+              <a 
+                href="https://www.facebook.com/share/1GyxtfPjR7/?mibextid=wwXIfr" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-white/80 hover:text-white transition-colors"
+                data-testid="link-facebook-hero"
+              >
+                <SiFacebook className="w-5 h-5" />
+              </a>
+              <a 
+                href="https://www.instagram.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-white/80 hover:text-white transition-colors"
+                data-testid="link-instagram-hero"
+              >
+                <SiInstagram className="w-5 h-5" />
+              </a>
+            </div>
+          </div>
         </div>
       </nav>
       <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
