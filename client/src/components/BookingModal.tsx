@@ -128,18 +128,8 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
         title: "Booking Request Submitted!",
         description: "We'll contact you within 24 hours to confirm your foam party.",
       });
+      resetForm();
       onOpenChange(false);
-      setFormData({
-        customerName: "",
-        email: "",
-        phone: "",
-        address: "",
-        partySize: "",
-        packageType: "",
-        eventTime: "",
-        notes: ""
-      });
-      setDate(undefined);
     },
     onError: () => {
       toast({
@@ -189,6 +179,26 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const resetForm = () => {
+    setFormData({
+      customerName: "",
+      email: "",
+      phone: "",
+      address: "",
+      partySize: "",
+      packageType: "",
+      eventTime: "",
+      notes: ""
+    });
+    setDate(undefined);
+    setCalendarOpen(false);
+  };
+
+  const handleCancel = () => {
+    resetForm();
+    onOpenChange(false);
+  };
+
   const getBookedSlotsCount = (checkDate: Date) => {
     const dateString = format(checkDate, "yyyy-MM-dd");
     return bookingsByDate.get(dateString)?.size || 0;
@@ -204,8 +214,15 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     formData.eventTime !== "" &&
     date !== undefined;
 
+  const handleDialogChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      resetForm();
+    }
+    onOpenChange(isOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-['Poppins']">Book Your Foam Party</DialogTitle>
@@ -475,7 +492,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             <Button 
               type="button" 
               variant="outline" 
-              onClick={() => onOpenChange(false)}
+              onClick={handleCancel}
               disabled={createBookingMutation.isPending}
               data-testid="button-cancel-booking"
             >
