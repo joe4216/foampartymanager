@@ -53,7 +53,10 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     customerName: "",
     email: "",
     phone: "",
-    address: "",
+    streetAddress: "",
+    city: "",
+    state: "",
+    zipCode: "",
     partySize: "",
     packageType: selectedPackage || "",
     eventTime: "",
@@ -160,11 +163,13 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       return;
     }
 
+    const fullAddress = `${formData.streetAddress}, ${formData.city}, ${formData.state} ${formData.zipCode}`;
+    
     const bookingData: InsertBooking = {
       customerName: formData.customerName,
       email: formData.email,
       phone: formData.phone,
-      address: formData.address,
+      address: fullAddress,
       partySize: parseInt(formData.partySize),
       packageType: formData.packageType,
       eventDate: format(date, "yyyy-MM-dd"),
@@ -184,7 +189,10 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       customerName: "",
       email: "",
       phone: "",
-      address: "",
+      streetAddress: "",
+      city: "",
+      state: "",
+      zipCode: "",
       partySize: "",
       packageType: "",
       eventTime: "",
@@ -209,7 +217,10 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     formData.email.trim() !== "" &&
     formData.phone.trim() !== "" &&
     formData.partySize.trim() !== "" &&
-    formData.address.trim() !== "" &&
+    formData.streetAddress.trim() !== "" &&
+    formData.city.trim() !== "" &&
+    formData.state.trim() !== "" &&
+    formData.zipCode.trim() !== "" &&
     formData.packageType !== "" &&
     formData.eventTime !== "" &&
     date !== undefined;
@@ -286,16 +297,55 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="address">Event Address *</Label>
-            <Input
-              id="address"
-              value={formData.address}
-              onChange={(e) => updateField('address', e.target.value)}
-              placeholder="123 Main St, City, State ZIP"
-              required
-              data-testid="input-address"
-            />
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Event Location *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="street-address">Street Address *</Label>
+              <Input
+                id="street-address"
+                value={formData.streetAddress}
+                onChange={(e) => updateField('streetAddress', e.target.value)}
+                placeholder="123 Main St"
+                required
+                data-testid="input-street-address"
+              />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-2 col-span-2 md:col-span-2">
+                <Label htmlFor="city">City *</Label>
+                <Input
+                  id="city"
+                  value={formData.city}
+                  onChange={(e) => updateField('city', e.target.value)}
+                  placeholder="City"
+                  required
+                  data-testid="input-city"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="state">State *</Label>
+                <Input
+                  id="state"
+                  value={formData.state}
+                  onChange={(e) => updateField('state', e.target.value)}
+                  placeholder="AL"
+                  required
+                  maxLength={2}
+                  data-testid="input-state"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="zip-code">Zip Code *</Label>
+                <Input
+                  id="zip-code"
+                  value={formData.zipCode}
+                  onChange={(e) => updateField('zipCode', e.target.value)}
+                  placeholder="12345"
+                  required
+                  data-testid="input-zip-code"
+                />
+              </div>
+            </div>
           </div>
           
           <div className="space-y-2">
