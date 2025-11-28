@@ -187,9 +187,7 @@ export default function HomePage() {
                     rel="noopener noreferrer"
                     className="hover:text-primary"
                     data-testid="link-facebook"
-                  >
-                    Facebook
-                  </a>
+                  >Facebook Page</a>
                 </li>
               </ul>
             </div>
