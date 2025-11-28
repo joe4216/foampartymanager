@@ -48,6 +48,7 @@ const PACKAGES = {
 
 export default function BookingModal({ open, onOpenChange, selectedPackage }: BookingModalProps) {
   const [date, setDate] = useState<Date>();
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [formData, setFormData] = useState({
     customerName: "",
     email: "",
@@ -321,7 +322,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Event Date *</Label>
-              <Popover>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -352,7 +353,10 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                   <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={setDate}
+                    onSelect={(selectedDate) => {
+                      setDate(selectedDate);
+                      setCalendarOpen(false);
+                    }}
                     initialFocus
                     className="p-2"
                     classNames={{
