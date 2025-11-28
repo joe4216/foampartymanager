@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Phone, Mail, MapPin, ShieldCheck, Droplet, Wind, Sparkles, Leaf, Heart } from "lucide-react";
 import { Link } from "wouter";
-import largeFoamEventImage from "@assets/generated_images/Large_scale_foam_event_6078494a.png";
+import largeFoamEventImage from "@assets/generated_images/exciting_large_foam_party_celebration.png";
 
 export default function HomePage() {
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
