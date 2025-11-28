@@ -336,16 +336,16 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                   <div className="p-3 border-b bg-muted/50">
                     <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <div className="w-3 h-3 rounded-full bg-primary"></div>
                         <span>Available</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                        <span>Partial</span>
+                        <span>Some slots taken</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                        <span>Full</span>
+                        <div className="w-3 h-3 rounded-full bg-muted-foreground/40"></div>
+                        <span>Unavailable</span>
                       </div>
                     </div>
                   </div>
@@ -361,22 +361,14 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                       return isPast || isFullyBooked;
                     }}
                     modifiers={{
-                      fullyBooked: (checkDate) => {
-                        const dateString = format(checkDate, "yyyy-MM-dd");
-                        return fullyBookedDates.has(dateString);
-                      },
                       partiallyBooked: (checkDate) => {
+                        const isPast = checkDate < new Date(new Date().setHours(0, 0, 0, 0));
+                        if (isPast) return false;
                         const bookedCount = getBookedSlotsCount(checkDate);
                         return bookedCount > 0 && bookedCount < ALL_TIME_SLOTS.length;
                       }
                     }}
                     modifiersStyles={{
-                      fullyBooked: {
-                        backgroundColor: "hsl(var(--destructive))",
-                        color: "hsl(var(--destructive-foreground))",
-                        fontWeight: "bold",
-                        textDecoration: "line-through"
-                      },
                       partiallyBooked: {
                         backgroundColor: "hsl(45, 93%, 47%)",
                         color: "hsl(0, 0%, 0%)",
