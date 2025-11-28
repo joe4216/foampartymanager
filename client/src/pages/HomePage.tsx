@@ -129,7 +129,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <div className="font-semibold">Email Us</div>
-                    <a href="mailto:party@foamworksparty.com" className="text-muted-foreground hover:text-primary">party@foamworksparty.com</a>
+                    <a href="mailto:party@foamworksparty.com" className="text-muted-foreground hover:text-primary">Jacee021798@gmail.com</a>
                   </div>
                 </div>
                 
