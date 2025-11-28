@@ -25,18 +25,8 @@ export default function Hero() {
       <nav className="absolute top-0 left-0 right-0 z-20 px-4 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="text-white font-bold text-xl font-['Poppins']">Foam Works Party Co.</div>
-          <div className="flex flex-col items-end gap-3">
-            <Link href="/auth">
-              <Button 
-                variant="outline" 
-                className="bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white/20"
-                data-testid="button-owner-signin"
-              >
-                <User className="w-4 h-4 mr-2" />
-                Owner Sign In
-              </Button>
-            </Link>
-            <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <a 
                 href="https://www.facebook.com/share/1GyxtfPjR7/?mibextid=wwXIfr" 
                 target="_blank" 
@@ -56,6 +46,16 @@ export default function Hero() {
                 <SiInstagram className="w-5 h-5" />
               </a>
             </div>
+            <Link href="/auth">
+              <Button 
+                variant="outline" 
+                className="bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white/20"
+                data-testid="button-owner-signin"
+              >
+                <User className="w-4 h-4 mr-2" />
+                Owner Sign In
+              </Button>
+            </Link>
           </div>
         </div>
       </nav>
