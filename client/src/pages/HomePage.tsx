@@ -139,7 +139,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <div className="font-semibold">Service Area</div>
-                    <div className="text-muted-foreground">Nationwide Service Available</div>
+                    <div className="text-muted-foreground">North Alabama</div>
                   </div>
                 </div>
               </div>
