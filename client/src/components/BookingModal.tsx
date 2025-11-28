@@ -6,20 +6,45 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, AlertCircle } from "lucide-react";
+import { CalendarIcon, AlertCircle, Clock, Sparkles } from "lucide-react";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { InsertBooking, Booking } from "@shared/schema";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 interface BookingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedPackage?: string;
 }
+
+const ALL_TIME_SLOTS = [
+  "10:00 AM",
+  "12:00 PM",
+  "2:00 PM",
+  "4:00 PM",
+  "6:00 PM"
+];
+
+const PACKAGES = {
+  standard: [
+    { value: "Quick Foam Fun", label: "Quick Foam Fun", price: "$200", duration: "30 min" },
+    { value: "Classic Party Package", label: "Classic Party Package", price: "$325", duration: "1 hour", popular: true },
+    { value: "Extended Foam Experience", label: "Extended Foam Experience", price: "$430", duration: "2 hours" }
+  ],
+  glow: [
+    { value: "Standard Glow Foam", label: "Standard Glow Foam", price: "+$125", duration: "Add-on" },
+    { value: "Extended Glow Foam", label: "Extended Glow Foam", price: "+$200", duration: "Add-on" }
+  ],
+  genderReveal: [
+    { value: "Surprise in Style", label: "Surprise in Style", price: "$300", duration: "30 min" },
+    { value: "Extended Reveal Celebration", label: "Extended Reveal Celebration", price: "$475", duration: "1 hour" }
+  ]
+};
 
 export default function BookingModal({ open, onOpenChange, selectedPackage }: BookingModalProps) {
   const [date, setDate] = useState<Date>();
@@ -48,18 +73,48 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     }
   }, [open, refetch]);
 
-  const bookedDates = new Set(
+  useEffect(() => {
+    if (selectedPackage) {
+      setFormData(prev => ({ ...prev, packageType: selectedPackage }));
+    }
+  }, [selectedPackage]);
+
+  const bookingsByDate = useMemo(() => {
+    const map = new Map<string, Set<string>>();
     existingBookings
       .filter(b => b.status === "confirmed" || b.status === "pending")
-      .map(b => b.eventDate)
-  );
+      .forEach(b => {
+        if (!map.has(b.eventDate)) {
+          map.set(b.eventDate, new Set());
+        }
+        map.get(b.eventDate)!.add(b.eventTime);
+      });
+    return map;
+  }, [existingBookings]);
 
-  const isDateAvailable = (checkDate: Date) => {
+  const fullyBookedDates = useMemo(() => {
+    const set = new Set<string>();
+    bookingsByDate.forEach((times, dateStr) => {
+      if (times.size >= ALL_TIME_SLOTS.length) {
+        set.add(dateStr);
+      }
+    });
+    return set;
+  }, [bookingsByDate]);
+
+  const getAvailableTimesForDate = (checkDate: Date) => {
     const dateString = format(checkDate, "yyyy-MM-dd");
-    return !bookedDates.has(dateString);
+    const bookedTimes = bookingsByDate.get(dateString) || new Set();
+    return ALL_TIME_SLOTS.filter(time => !bookedTimes.has(time));
   };
 
-  const selectedDateAvailable = date ? isDateAvailable(date) : true;
+  const availableTimesForSelectedDate = date ? getAvailableTimesForDate(date) : ALL_TIME_SLOTS;
+
+  useEffect(() => {
+    if (date && formData.eventTime && !availableTimesForSelectedDate.includes(formData.eventTime)) {
+      setFormData(prev => ({ ...prev, eventTime: "" }));
+    }
+  }, [date, availableTimesForSelectedDate, formData.eventTime]);
 
   const createBookingMutation = useMutation({
     mutationFn: async (booking: InsertBooking) => {
@@ -105,10 +160,10 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       return;
     }
 
-    if (!isDateAvailable(date)) {
+    if (!formData.eventTime) {
       toast({
-        title: "Date Unavailable",
-        description: "This date is already booked. Please select another date.",
+        title: "Time Required",
+        description: "Please select an event time.",
         variant: "destructive",
       });
       return;
@@ -131,6 +186,11 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
 
   const updateField = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const getBookedSlotsCount = (checkDate: Date) => {
+    const dateString = format(checkDate, "yyyy-MM-dd");
+    return bookingsByDate.get(dateString)?.size || 0;
   };
 
   return (
@@ -210,25 +270,55 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             />
           </div>
           
+          <div className="space-y-2">
+            <Label>Package *</Label>
+            <Select 
+              value={formData.packageType} 
+              onValueChange={(value) => updateField('packageType', value)}
+              required
+            >
+              <SelectTrigger data-testid="select-package">
+                <SelectValue placeholder="Select a package" />
+              </SelectTrigger>
+              <SelectContent>
+                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Standard Foam Parties</div>
+                {PACKAGES.standard.map(pkg => (
+                  <SelectItem key={pkg.value} value={pkg.value}>
+                    <div className="flex items-center gap-2">
+                      <span>{pkg.label}</span>
+                      <span className="text-muted-foreground">({pkg.duration})</span>
+                      <span className="font-semibold text-primary">{pkg.price}</span>
+                      {pkg.popular && <Badge variant="secondary" className="text-xs">Popular</Badge>}
+                    </div>
+                  </SelectItem>
+                ))}
+                
+                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground mt-2">Glow Foam Add-ons</div>
+                {PACKAGES.glow.map(pkg => (
+                  <SelectItem key={pkg.value} value={pkg.value}>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-3 h-3 text-purple-500" />
+                      <span>{pkg.label}</span>
+                      <span className="font-semibold text-purple-600">{pkg.price}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+                
+                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground mt-2">Gender Reveal Parties</div>
+                {PACKAGES.genderReveal.map(pkg => (
+                  <SelectItem key={pkg.value} value={pkg.value}>
+                    <div className="flex items-center gap-2">
+                      <span>{pkg.label}</span>
+                      <span className="text-muted-foreground">({pkg.duration})</span>
+                      <span className="font-semibold text-pink-600">{pkg.price}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Package *</Label>
-              <Select 
-                value={formData.packageType} 
-                onValueChange={(value) => updateField('packageType', value)}
-                required
-              >
-                <SelectTrigger data-testid="select-package">
-                  <SelectValue placeholder="Select a package" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Basic Party">Basic Party - $199</SelectItem>
-                  <SelectItem value="Standard Party">Standard Party - $299</SelectItem>
-                  <SelectItem value="Premium Party">Premium Party - $499</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
             <div className="space-y-2">
               <Label>Event Date *</Label>
               <Popover>
@@ -250,8 +340,12 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                         <span>Available</span>
                       </div>
                       <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <span>Partial</span>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                        <span>Booked</span>
+                        <span>Full</span>
                       </div>
                     </div>
                   </div>
@@ -263,34 +357,40 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                     disabled={(checkDate) => {
                       const isPast = checkDate < new Date(new Date().setHours(0, 0, 0, 0));
                       const dateString = format(checkDate, "yyyy-MM-dd");
-                      const isBooked = bookedDates.has(dateString);
-                      return isPast || isBooked;
+                      const isFullyBooked = fullyBookedDates.has(dateString);
+                      return isPast || isFullyBooked;
                     }}
                     modifiers={{
-                      booked: (checkDate) => {
+                      fullyBooked: (checkDate) => {
                         const dateString = format(checkDate, "yyyy-MM-dd");
-                        return bookedDates.has(dateString);
+                        return fullyBookedDates.has(dateString);
+                      },
+                      partiallyBooked: (checkDate) => {
+                        const bookedCount = getBookedSlotsCount(checkDate);
+                        return bookedCount > 0 && bookedCount < ALL_TIME_SLOTS.length;
                       }
                     }}
                     modifiersStyles={{
-                      booked: {
+                      fullyBooked: {
                         backgroundColor: "hsl(var(--destructive))",
                         color: "hsl(var(--destructive-foreground))",
                         fontWeight: "bold",
                         textDecoration: "line-through"
+                      },
+                      partiallyBooked: {
+                        backgroundColor: "hsl(45, 93%, 47%)",
+                        color: "hsl(0, 0%, 0%)",
+                        fontWeight: "bold"
                       }
                     }}
                     data-testid="calendar-event-date"
                   />
                 </PopoverContent>
               </Popover>
-              {date && !selectedDateAvailable && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    This date is already booked. Please select another date.
-                  </AlertDescription>
-                </Alert>
+              {date && (
+                <p className="text-sm text-muted-foreground">
+                  {availableTimesForSelectedDate.length} of {ALL_TIME_SLOTS.length} time slots available
+                </p>
               )}
             </div>
             
@@ -300,18 +400,37 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                 value={formData.eventTime} 
                 onValueChange={(value) => updateField('eventTime', value)}
                 required
+                disabled={!date}
               >
                 <SelectTrigger data-testid="select-time">
-                  <SelectValue placeholder="Select time" />
+                  <SelectValue placeholder={date ? "Select time" : "Select date first"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="10:00 AM">10:00 AM</SelectItem>
-                  <SelectItem value="12:00 PM">12:00 PM</SelectItem>
-                  <SelectItem value="2:00 PM">2:00 PM</SelectItem>
-                  <SelectItem value="4:00 PM">4:00 PM</SelectItem>
-                  <SelectItem value="6:00 PM">6:00 PM</SelectItem>
+                  {ALL_TIME_SLOTS.map(time => {
+                    const isAvailable = availableTimesForSelectedDate.includes(time);
+                    return (
+                      <SelectItem 
+                        key={time} 
+                        value={time}
+                        disabled={!isAvailable}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3 h-3" />
+                          <span>{time}</span>
+                          {!isAvailable && (
+                            <Badge variant="destructive" className="text-xs">Booked</Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
+              {!date && (
+                <p className="text-sm text-muted-foreground">
+                  Please select a date to see available times
+                </p>
+              )}
             </div>
           </div>
           
