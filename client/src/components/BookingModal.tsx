@@ -354,6 +354,25 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                     selected={date}
                     onSelect={setDate}
                     initialFocus
+                    className="p-2"
+                    classNames={{
+                      months: "flex flex-col",
+                      month: "space-y-2",
+                      caption: "flex justify-center pt-1 relative items-center",
+                      caption_label: "text-sm font-medium",
+                      nav: "space-x-1 flex items-center",
+                      table: "w-full border-collapse",
+                      head_row: "flex justify-between",
+                      head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem] text-center",
+                      row: "flex w-full mt-1 justify-between",
+                      cell: "h-8 w-8 text-center text-sm p-0 relative",
+                      day: "h-8 w-8 p-0 font-normal rounded-md hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground aria-selected:opacity-100",
+                      day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                      day_today: "bg-accent text-accent-foreground",
+                      day_outside: "text-muted-foreground opacity-50",
+                      day_disabled: "text-muted-foreground opacity-30",
+                      day_hidden: "invisible",
+                    }}
                     disabled={(checkDate) => {
                       const isPast = checkDate < new Date(new Date().setHours(0, 0, 0, 0));
                       const dateString = format(checkDate, "yyyy-MM-dd");
