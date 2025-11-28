@@ -170,7 +170,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <h3 className="text-xl font-bold font-['Poppins'] mb-4">Foam Works Party Co.</h3>
-              <p className="text-muted-foreground">Foaming Around and Find Out</p>
+              <p className="text-muted-foreground">Foam Around and Find Out</p>
             </div>
             
             <div>
@@ -192,7 +192,7 @@ export default function HomePage() {
           </div>
           
           <div className="border-t mt-8 pt-8 text-center text-muted-foreground">
-            <p>&copy; 2024 Sandmountain Foam Party. All rights reserved.</p>
+            <p>© 2024 Foam Works Party Co. All rights reserved.</p>
           </div>
         </div>
       </footer>
