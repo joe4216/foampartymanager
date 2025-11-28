@@ -10,6 +10,7 @@ import BookingModal from "@/components/BookingModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Phone, Mail, MapPin, ShieldCheck, Droplet, Wind, Sparkles, Leaf, Heart } from "lucide-react";
+import { SiFacebook } from "react-icons/si";
 import { Link } from "wouter";
 import largeFoamEventImage from "@assets/generated_images/exciting_large_foam_party_celebration.png";
 
@@ -179,6 +180,18 @@ export default function HomePage() {
                 <li><a href="#packages-section" className="hover:text-primary">Packages</a></li>
                 <li><a href="#booking-section" className="hover:text-primary">Book Now</a></li>
                 <li><Link href="/owner/dashboard" className="hover:text-primary">Owner Portal</Link></li>
+                <li>
+                  <a 
+                    href="https://www.facebook.com/share/1GyxtfPjR7/?mibextid=wwXIfr" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="hover:text-primary inline-flex items-center gap-2"
+                    data-testid="link-facebook"
+                  >
+                    <SiFacebook className="w-4 h-4" />
+                    Facebook
+                  </a>
+                </li>
               </ul>
             </div>
             
