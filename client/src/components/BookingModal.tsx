@@ -332,7 +332,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                     {date ? format(date, "PPP") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
+                <PopoverContent className="w-auto p-0" side="top" align="start">
                   <div className="p-3 border-b bg-muted/50">
                     <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-2">
