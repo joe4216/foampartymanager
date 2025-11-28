@@ -169,7 +169,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <h3 className="text-xl font-bold font-['Poppins'] mb-4">Sandmountain Foam Party</h3>
+              <h3 className="text-xl font-bold font-['Poppins'] mb-4">Foam Works Party Co.</h3>
               <p className="text-muted-foreground">Foaming Around and Find Out</p>
             </div>
             
