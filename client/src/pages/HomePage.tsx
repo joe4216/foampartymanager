@@ -185,10 +185,9 @@ export default function HomePage() {
                     href="https://www.facebook.com/share/1GyxtfPjR7/?mibextid=wwXIfr" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="hover:text-primary inline-flex items-center gap-2"
+                    className="hover:text-primary"
                     data-testid="link-facebook"
                   >
-                    <SiFacebook className="w-4 h-4" />
                     Facebook
                   </a>
                 </li>
