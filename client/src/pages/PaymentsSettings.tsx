@@ -3,13 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { CreditCard, ExternalLink, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { CreditCard, ExternalLink, CheckCircle, AlertCircle, Loader2, AlertTriangle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import type { StripeSettings } from "@shared/schema";
 
 export default function PaymentsSettings() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const [connectError, setConnectError] = useState<string | null>(null);
   
   const { data: settings, isLoading } = useQuery<StripeSettings | null>({
     queryKey: ["/api/stripe/settings"],
@@ -36,11 +39,27 @@ export default function PaymentsSettings() {
   const connectMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/stripe/connect/onboard");
-      return await res.json();
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || data.error || "Failed to connect");
+      }
+      return data;
     },
     onSuccess: (data) => {
+      setConnectError(null);
       if (data.url) {
         window.location.href = data.url;
+      }
+    },
+    onError: (error: Error) => {
+      if (error.message.includes("Connect enabled") || error.message.includes("Connect not enabled")) {
+        setConnectError(error.message);
+      } else {
+        toast({
+          title: "Connection failed",
+          description: error.message,
+          variant: "destructive",
+        });
       }
     },
   });
@@ -175,6 +194,27 @@ export default function PaymentsSettings() {
             </div>
           ) : (
             <div className="space-y-4">
+              {connectError && (
+                <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
+                  <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                    <AlertTriangle className="w-5 h-5" />
+                    <span className="font-medium">Stripe Connect Setup Required</span>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {connectError}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 gap-2"
+                    onClick={() => window.open("https://dashboard.stripe.com/connect/accounts/overview", "_blank")}
+                    data-testid="button-open-stripe-connect"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Open Stripe Connect Dashboard
+                  </Button>
+                </div>
+              )}
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-medium mb-2">Why connect Stripe?</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">

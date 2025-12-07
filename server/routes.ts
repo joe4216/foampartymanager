@@ -230,8 +230,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       res.json({ url: accountLink.url });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Stripe Connect onboard error:", error);
+      
+      if (error?.message?.includes("signed up for Connect")) {
+        res.status(400).json({ 
+          error: "Stripe Connect not enabled",
+          message: "Your Stripe account needs to have Connect enabled. Please visit your Stripe Dashboard and enable Connect to use this feature."
+        });
+        return;
+      }
+      
       res.status(500).json({ error: "Failed to create onboarding link" });
     }
   });
