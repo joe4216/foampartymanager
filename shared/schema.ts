@@ -9,6 +9,14 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
 });
 
+export const stripeSettings = pgTable("stripe_settings", {
+  id: serial("id").primaryKey(),
+  stripeAccountId: text("stripe_account_id"),
+  stripeAccountStatus: text("stripe_account_status").default("not_connected"),
+  stripeAccountEmail: text("stripe_account_email"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
   customerName: text("customer_name").notNull(),
@@ -45,3 +53,4 @@ export type User = typeof users.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;
 export type BookingStatus = z.infer<typeof bookingStatusSchema>;
+export type StripeSettings = typeof stripeSettings.$inferSelect;

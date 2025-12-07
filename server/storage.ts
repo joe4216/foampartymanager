@@ -1,4 +1,4 @@
-import { bookings, users, type Booking, type InsertBooking, type User, type InsertUser } from "@shared/schema";
+import { bookings, users, stripeSettings, type Booking, type InsertBooking, type User, type InsertUser, type StripeSettings } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import session from "express-session";
@@ -19,6 +19,9 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  
+  getStripeSettings(): Promise<StripeSettings | null>;
+  updateStripeSettings(accountId: string, status: string, email?: string): Promise<StripeSettings>;
   
   sessionStore: session.Store;
 }
@@ -98,6 +101,39 @@ export class DatabaseStorage implements IStorage {
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user || undefined;
+  }
+
+  async getStripeSettings(): Promise<StripeSettings | null> {
+    const [settings] = await db.select().from(stripeSettings).limit(1);
+    return settings || null;
+  }
+
+  async updateStripeSettings(accountId: string, status: string, email?: string): Promise<StripeSettings> {
+    const existing = await this.getStripeSettings();
+    
+    if (existing) {
+      const [updated] = await db
+        .update(stripeSettings)
+        .set({ 
+          stripeAccountId: accountId, 
+          stripeAccountStatus: status, 
+          stripeAccountEmail: email,
+          updatedAt: new Date()
+        })
+        .where(eq(stripeSettings.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(stripeSettings)
+        .values({ 
+          stripeAccountId: accountId, 
+          stripeAccountStatus: status, 
+          stripeAccountEmail: email 
+        })
+        .returning();
+      return created;
+    }
   }
 }
 

@@ -90,7 +90,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stripe = await getUncachableStripeClient();
       const baseUrl = `${req.protocol}://${req.get('host')}`;
       
-      const session = await stripe.checkout.sessions.create({
+      const stripeSettings = await storage.getStripeSettings();
+      const connectedAccountId = stripeSettings?.stripeAccountStatus === 'active' 
+        ? stripeSettings.stripeAccountId 
+        : null;
+      
+      const sessionParams: any = {
         payment_method_types: ['card'],
         line_items: [{
           price_data: {
@@ -110,7 +115,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: {
           bookingId: booking.id.toString(),
         },
-      });
+      };
+
+      if (connectedAccountId) {
+        sessionParams.payment_intent_data = {
+          transfer_data: {
+            destination: connectedAccountId,
+          },
+        };
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionParams);
 
       await storage.updateBookingStripeSession(booking.id, session.id);
 
@@ -166,6 +181,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to cancel booking" });
+    }
+  });
+
+  app.get("/api/stripe/settings", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const settings = await storage.getStripeSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get Stripe settings" });
+    }
+  });
+
+  app.post("/api/stripe/connect/onboard", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const stripe = await getUncachableStripeClient();
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      
+      let settings = await storage.getStripeSettings();
+      let accountId = settings?.stripeAccountId;
+      
+      if (!accountId) {
+        const account = await stripe.accounts.create({
+          type: 'express',
+          country: 'US',
+          capabilities: {
+            card_payments: { requested: true },
+            transfers: { requested: true },
+          },
+        });
+        accountId = account.id;
+        await storage.updateStripeSettings(accountId, 'pending');
+      }
+      
+      const accountLink = await stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: `${baseUrl}/owner/payments?refresh=true`,
+        return_url: `${baseUrl}/owner/payments?success=true`,
+        type: 'account_onboarding',
+      });
+      
+      res.json({ url: accountLink.url });
+    } catch (error) {
+      console.error("Stripe Connect onboard error:", error);
+      res.status(500).json({ error: "Failed to create onboarding link" });
+    }
+  });
+
+  app.post("/api/stripe/connect/refresh", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const settings = await storage.getStripeSettings();
+      
+      if (!settings?.stripeAccountId) {
+        res.json({ status: 'not_connected' });
+        return;
+      }
+      
+      const stripe = await getUncachableStripeClient();
+      const account = await stripe.accounts.retrieve(settings.stripeAccountId);
+      
+      let status = 'pending';
+      if (account.charges_enabled && account.payouts_enabled) {
+        status = 'active';
+      } else if (account.details_submitted) {
+        status = 'pending_verification';
+      }
+      
+      await storage.updateStripeSettings(
+        settings.stripeAccountId, 
+        status, 
+        account.email || undefined
+      );
+      
+      const updatedSettings = await storage.getStripeSettings();
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error("Stripe Connect refresh error:", error);
+      res.status(500).json({ error: "Failed to refresh account status" });
     }
   });
 
