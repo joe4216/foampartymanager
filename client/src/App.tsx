@@ -11,6 +11,8 @@ import OwnerDashboard from "@/pages/OwnerDashboard";
 import CalendarView from "@/pages/CalendarView";
 import KanbanView from "@/pages/KanbanView";
 import AuthPage from "@/pages/AuthPage";
+import BookingSuccess from "@/pages/BookingSuccess";
+import BookingCancelled from "@/pages/BookingCancelled";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 
@@ -36,6 +38,8 @@ function Router() {
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/booking-success" component={BookingSuccess} />
+      <Route path="/booking-cancelled" component={BookingCancelled} />
       <ProtectedRoute 
         path="/owner/dashboard" 
         component={() => (

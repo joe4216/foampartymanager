@@ -21,6 +21,8 @@ export const bookings = pgTable("bookings", {
   eventTime: text("event_time").notNull(),
   status: text("status").notNull().default("pending"),
   notes: text("notes"),
+  stripeSessionId: text("stripe_session_id"),
+  amountPaid: integer("amount_paid"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

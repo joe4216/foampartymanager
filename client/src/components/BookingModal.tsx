@@ -32,17 +32,17 @@ const ALL_TIME_SLOTS = [
 
 const PACKAGES = {
   standard: [
-    { value: "Quick Foam Fun", label: "Quick Foam Fun", price: "$200", duration: "30 min" },
-    { value: "Classic Party Package", label: "Classic Party Package", price: "$325", duration: "1 hour", popular: true },
-    { value: "Extended Foam Experience", label: "Extended Foam Experience", price: "$430", duration: "2 hours" }
+    { value: "standard-30min", label: "Quick Foam Fun", price: "$200", duration: "30 min" },
+    { value: "standard-1hr", label: "Classic Party Package", price: "$325", duration: "1 hour", popular: true },
+    { value: "standard-2hr", label: "Extended Foam Experience", price: "$430", duration: "2 hours" }
   ],
   glow: [
-    { value: "Standard Glow Foam", label: "Standard Glow Foam", price: "+$125", duration: "Add-on" },
-    { value: "Extended Glow Foam", label: "Extended Glow Foam", price: "+$200", duration: "Add-on" }
+    { value: "glow-30min", label: "Standard Glow Foam", price: "+$125", duration: "Add-on" },
+    { value: "glow-1hr", label: "Extended Glow Foam", price: "+$200", duration: "Add-on" }
   ],
   genderReveal: [
-    { value: "Surprise in Style", label: "Surprise in Style", price: "$300", duration: "30 min" },
-    { value: "Extended Reveal Celebration", label: "Extended Reveal Celebration", price: "$475", duration: "1 hour" }
+    { value: "gender-reveal-30min", label: "Surprise in Style", price: "$300", duration: "30 min" },
+    { value: "gender-reveal-1hr", label: "Extended Reveal Celebration", price: "$475", duration: "1 hour" }
   ]
 };
 
@@ -122,22 +122,18 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
 
   const createBookingMutation = useMutation({
     mutationFn: async (booking: InsertBooking) => {
-      const res = await apiRequest("POST", "/api/bookings", booking);
+      const res = await apiRequest("POST", "/api/create-checkout-session", booking);
       return await res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
-      toast({
-        title: "Booking Request Submitted!",
-        description: "We'll contact you within 24 hours to confirm your foam party.",
-      });
-      resetForm();
-      onOpenChange(false);
+    onSuccess: (data: { url: string; bookingId: number }) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
     },
     onError: () => {
       toast({
         title: "Booking Failed",
-        description: "There was an error submitting your booking. Please try again.",
+        description: "There was an error creating your booking. Please try again.",
         variant: "destructive",
       });
     },
@@ -238,7 +234,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
         <DialogHeader>
           <DialogTitle className="text-2xl font-['Poppins']">Book Your Foam Party</DialogTitle>
           <DialogDescription>
-            Fill out the details below and we'll get back to you within 24 hours to confirm your booking.
+            Fill out your details below, then proceed to secure payment to confirm your booking.
           </DialogDescription>
         </DialogHeader>
         
@@ -483,8 +479,10 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                     mode="single"
                     selected={date}
                     onSelect={(selectedDate) => {
-                      setDate(selectedDate);
-                      setCalendarOpen(false);
+                      if (selectedDate) {
+                        setDate(selectedDate);
+                        setCalendarOpen(false);
+                      }
                     }}
                     initialFocus
                     className="p-2"
@@ -606,7 +604,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
               className={!isFormComplete ? "bg-muted text-muted-foreground hover:bg-muted" : ""}
               data-testid="button-submit-booking"
             >
-              {createBookingMutation.isPending ? "Submitting..." : "Submit Booking Request"}
+              {createBookingMutation.isPending ? "Processing..." : "Continue to Payment"}
             </Button>
           </div>
         </form>
