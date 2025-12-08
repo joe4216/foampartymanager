@@ -29,7 +29,13 @@ async function initStripe() {
     const stripeSync = await getStripeSync();
 
     console.log('Setting up managed webhook...');
-    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    // Support both Replit and Railway/custom domains
+    const domain = process.env.APP_DOMAIN || process.env.REPLIT_DOMAINS?.split(',')[0];
+    if (!domain) {
+      console.log('No domain configured for webhook, skipping webhook setup');
+      return;
+    }
+    const webhookBaseUrl = `https://${domain}`;
     const { webhook, uuid } = await stripeSync.findOrCreateManagedWebhook(
       `${webhookBaseUrl}/api/stripe/webhook`,
       {
