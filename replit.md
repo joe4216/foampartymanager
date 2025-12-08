@@ -126,3 +126,22 @@ Preferred communication style: Simple, everyday language.
 - clsx & tailwind-merge - Conditional CSS class management
 - nanoid - Unique ID generation
 - ws - WebSocket library for database connections
+
+## Deployment
+
+### Production Infrastructure
+- **Hosting**: Railway (railway.app)
+- **Database**: Neon PostgreSQL (serverless)
+- **Payments**: Stripe with Connect
+
+### Environment Variables (Required for Railway)
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | Neon PostgreSQL connection string |
+| `STRIPE_SECRET_KEY` | Stripe API secret key |
+| `SESSION_SECRET` | Random string for session encryption |
+| `APP_DOMAIN` | Railway domain (e.g., `your-app.up.railway.app`) |
+
+### Build & Start Commands
+- `npm run build` - Builds frontend (Vite) and backend (esbuild)
+- `npm run start` - Runs production server on PORT env variable
