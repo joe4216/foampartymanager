@@ -77,10 +77,14 @@ Preferred communication style: Simple, everyday language.
 - Schema-first approach with automatic TypeScript type inference
 
 **Database Schema**
+- `users` table with fields: id, username, password, firstName, lastName, phone
 - `bookings` table with fields: id, customerName, email, phone, address, partySize, packageType, eventDate, eventTime, status, notes, createdAt
 - Status enum: pending, confirmed, completed, cancelled
 - Serial primary key with auto-incrementing IDs
 - Timestamp fields with automatic `defaultNow()` for creation tracking
+
+**Planned Features**
+- SMS verification via Twilio (pending user setup of Twilio credentials)
 
 **Data Access Pattern**
 - Repository pattern via `DatabaseStorage` class
