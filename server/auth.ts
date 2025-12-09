@@ -64,14 +64,30 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/register", async (req, res, next) => {
-    const existingUser = await storage.getUserByUsername(req.body.username);
+    const { username, password, firstName, lastName, phone } = req.body;
+    
+    // Validate password requirements
+    const passwordErrors = [];
+    if (password.length < 8) passwordErrors.push("At least 8 characters required");
+    if (!/[a-zA-Z]/.test(password)) passwordErrors.push("At least one letter required");
+    if (!/[0-9]/.test(password)) passwordErrors.push("At least one number required");
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) passwordErrors.push("At least one symbol required");
+    
+    if (passwordErrors.length > 0) {
+      return res.status(400).json({ message: "Invalid password", errors: passwordErrors });
+    }
+
+    const existingUser = await storage.getUserByUsername(username);
     if (existingUser) {
       return res.status(400).send("Username already exists");
     }
 
     const user = await storage.createUser({
-      ...req.body,
-      password: await hashPassword(req.body.password),
+      username,
+      password: await hashPassword(password),
+      firstName,
+      lastName,
+      phone,
     });
 
     req.login(user, (err) => {
