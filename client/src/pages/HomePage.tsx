@@ -149,7 +149,7 @@ export default function HomePage() {
               <Button 
                 size="lg" 
                 className="text-lg px-8"
-                onClick={() => setBookingModalOpen(true)}
+                onClick={() => handleBookClick("Classic Party Package")}
                 data-testid="button-book-cta"
               >
                 Book Your Party Now
