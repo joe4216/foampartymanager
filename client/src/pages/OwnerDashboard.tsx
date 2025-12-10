@@ -60,12 +60,12 @@ export default function OwnerDashboard() {
         totalGuests={totalGuests}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        <Card className="flex flex-col h-full">
           <CardHeader>
             <CardTitle className="font-['Poppins']">Recent Bookings</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1">
             {recentBookings.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No bookings yet</p>
             ) : (
@@ -97,12 +97,12 @@ export default function OwnerDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="flex flex-col h-full">
           <CardHeader>
             <CardTitle className="font-['Poppins']">Quick Actions</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="flex-1">
+            <div className="space-y-3 h-full flex flex-col justify-between">
               <Link href="/owner/calendar">
                 <div className="block w-full p-4 text-left border rounded-lg hover-elevate cursor-pointer" data-testid="button-quick-calendar">
                   <div className="font-semibold mb-1">View Calendar</div>
