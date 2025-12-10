@@ -46,6 +46,13 @@ const PACKAGES = {
   ]
 };
 
+const ALL_PACKAGES = [...PACKAGES.standard, ...PACKAGES.glow, ...PACKAGES.genderReveal];
+
+const findPackageValueByLabel = (label: string): string => {
+  const pkg = ALL_PACKAGES.find(p => p.label === label);
+  return pkg ? pkg.value : "";
+};
+
 export default function BookingModal({ open, onOpenChange, selectedPackage }: BookingModalProps) {
   const [date, setDate] = useState<Date>();
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -78,10 +85,13 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   }, [open, refetch]);
 
   useEffect(() => {
-    if (selectedPackage) {
-      setFormData(prev => ({ ...prev, packageType: selectedPackage }));
+    if (open && selectedPackage) {
+      const packageValue = findPackageValueByLabel(selectedPackage);
+      if (packageValue) {
+        setFormData(prev => ({ ...prev, packageType: packageValue }));
+      }
     }
-  }, [selectedPackage]);
+  }, [selectedPackage, open]);
 
   const bookingsByDate = useMemo(() => {
     const map = new Map<string, Set<string>>();
