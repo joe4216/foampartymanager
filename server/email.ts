@@ -9,7 +9,7 @@ export async function sendVerificationCode(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Foam Works Party Co <onboarding@resend.dev>',
+      from: 'Foam Works Party Co <noreply@foamworkspartyco.com>',
       to: email,
       subject: 'Your Login Verification Code',
       html: `
