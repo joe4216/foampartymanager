@@ -49,7 +49,7 @@ export default function ChatBot({ onBookNow }: ChatBotProps) {
       role: "assistant",
       content: "Hi! I'm the Foam Works Party Co assistant. I can help you with:\n\n• View or update your booking\n• Reschedule your event\n• Cancel a booking\n• Get information about our packages\n• Contact the owner\n\nTo get started, do you have your booking number?",
       timestamp: new Date(),
-      actions: ["I have my booking number", "I don't have my booking number", "Just browsing"],
+      actions: ["Book a reservation", "I have my booking number", "I don't have my booking number", "Just browsing"],
     },
   ]);
   const [input, setInput] = useState("");
