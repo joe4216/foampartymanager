@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertBookingSchema, bookingStatusSchema } from "@shared/schema";
 import { setupAuth } from "./auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
-import { analyzeVenmoReceipt } from "./openai";
+import { analyzeVenmoReceipt, processChatMessage } from "./openai";
 import fs from "fs";
 import path from "path";
 
@@ -538,6 +538,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Stripe Connect refresh error:", error);
       res.status(500).json({ error: "Failed to refresh account status" });
+    }
+  });
+
+  // Chatbot endpoint
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const { message, sessionEmail, conversationHistory } = req.body;
+      
+      if (!message) {
+        res.status(400).json({ error: "Message is required" });
+        return;
+      }
+
+      // Try to find booking if we have email/phone from session or extracted from conversation
+      let booking = undefined;
+      if (sessionEmail) {
+        booking = await storage.getBookingByEmail(sessionEmail);
+      }
+
+      // Process the message with AI
+      const aiResponse = await processChatMessage(message, {
+        booking,
+        conversationHistory: conversationHistory || [],
+      });
+
+      // Handle different intents
+      let responseBooking = booking;
+      let actions: string[] = [];
+
+      // If AI extracted email/phone, try to look up booking
+      if (aiResponse.extractedEmail && !booking) {
+        responseBooking = await storage.getBookingByEmail(aiResponse.extractedEmail);
+        if (responseBooking) {
+          actions = ["View Details", "Reschedule", "Cancel Booking"];
+        }
+      } else if (aiResponse.extractedPhone && !booking) {
+        responseBooking = await storage.getBookingByPhone(aiResponse.extractedPhone);
+        if (responseBooking) {
+          actions = ["View Details", "Reschedule", "Cancel Booking"];
+        }
+      }
+
+      // Handle reschedule intent if we have a booking and date/time
+      if (aiResponse.intent === "reschedule" && responseBooking && aiResponse.newDate && aiResponse.newTime) {
+        await storage.rescheduleBooking(responseBooking.id, aiResponse.newDate, aiResponse.newTime);
+        responseBooking = await storage.getBooking(responseBooking.id);
+      }
+
+      // Handle cancel intent
+      if (aiResponse.intent === "cancel" && responseBooking) {
+        // Only cancel if user confirmed (AI should handle confirmation flow)
+        if (message.toLowerCase().includes("yes") || message.toLowerCase().includes("confirm")) {
+          await storage.cancelBooking(responseBooking.id, "Cancelled via chat");
+          responseBooking = await storage.getBooking(responseBooking.id);
+        } else {
+          actions = ["Yes, Cancel My Booking", "No, Keep My Booking"];
+        }
+      }
+
+      // Add actions based on current state
+      if (responseBooking && actions.length === 0) {
+        if (responseBooking.status !== "cancelled") {
+          actions = ["Reschedule", "Cancel Booking", "Contact Owner"];
+        }
+      } else if (!responseBooking && aiResponse.intent !== "general_info" && aiResponse.intent !== "greeting") {
+        actions = ["Find My Booking", "Package Information", "Contact Owner"];
+      }
+
+      res.json({
+        message: aiResponse.message,
+        bookingInfo: responseBooking ? {
+          id: responseBooking.id,
+          customerName: responseBooking.customerName,
+          email: responseBooking.email,
+          phone: responseBooking.phone,
+          packageType: responseBooking.packageType,
+          eventDate: responseBooking.eventDate,
+          eventTime: responseBooking.eventTime,
+          status: responseBooking.status,
+        } : undefined,
+        actions,
+        sessionVerified: !!responseBooking,
+      });
+    } catch (error) {
+      console.error("Chat error:", error);
+      res.status(500).json({ error: "Failed to process chat message" });
     }
   });
 

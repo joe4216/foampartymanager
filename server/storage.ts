@@ -22,6 +22,12 @@ export interface IStorage {
   verifyVenmoPayment(id: number, receivedAmount: number, verified: boolean, notes: string): Promise<Booking | undefined>;
   getPendingVenmoBookings(): Promise<Booking[]>;
   
+  // Chat/booking lookup methods
+  getBookingByEmail(email: string): Promise<Booking | undefined>;
+  getBookingByPhone(phone: string): Promise<Booking | undefined>;
+  rescheduleBooking(id: number, newDate: string, newTime: string): Promise<Booking | undefined>;
+  cancelBooking(id: number, reason?: string): Promise<Booking | undefined>;
+  
   createUser(user: InsertUser): Promise<User>;
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -136,6 +142,60 @@ export class DatabaseStorage implements IStorage {
         eq(bookings.paymentVerified, false)
       )
     );
+  }
+
+  async getBookingByEmail(email: string): Promise<Booking | undefined> {
+    const results = await db.select().from(bookings).where(eq(bookings.email, email));
+    // Return most recent booking
+    if (results.length === 0) return undefined;
+    return results.sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    )[0];
+  }
+
+  async getBookingByPhone(phone: string): Promise<Booking | undefined> {
+    // Normalize phone number (remove non-digits)
+    const normalizedPhone = phone.replace(/\D/g, "");
+    const results = await db.select().from(bookings);
+    // Find bookings with matching phone (normalized comparison)
+    const matches = results.filter(b => 
+      b.phone?.replace(/\D/g, "") === normalizedPhone
+    );
+    if (matches.length === 0) return undefined;
+    return matches.sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    )[0];
+  }
+
+  async rescheduleBooking(id: number, newDate: string, newTime: string): Promise<Booking | undefined> {
+    const existing = await this.getBooking(id);
+    const [booking] = await db
+      .update(bookings)
+      .set({ 
+        eventDate: newDate, 
+        eventTime: newTime,
+        notes: existing?.notes 
+          ? `${existing.notes}\n[Rescheduled to ${newDate} ${newTime}: ${new Date().toISOString()}]`
+          : `[Rescheduled to ${newDate} ${newTime}: ${new Date().toISOString()}]`
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
+  }
+
+  async cancelBooking(id: number, reason?: string): Promise<Booking | undefined> {
+    const existing = await this.getBooking(id);
+    const [booking] = await db
+      .update(bookings)
+      .set({ 
+        status: "cancelled",
+        notes: existing?.notes 
+          ? `${existing.notes}\n[Cancelled: ${reason || 'Customer request'} - ${new Date().toISOString()}]`
+          : `[Cancelled: ${reason || 'Customer request'} - ${new Date().toISOString()}]`
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {

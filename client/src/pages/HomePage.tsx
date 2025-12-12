@@ -7,6 +7,7 @@ import NewsFeed from "@/components/NewsFeed";
 import Gallery from "@/components/Gallery";
 import Testimonials from "@/components/Testimonials";
 import BookingModal from "@/components/BookingModal";
+import ChatBot from "@/components/ChatBot";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Phone, Mail, MapPin, ShieldCheck, Droplet, Wind, Sparkles, Leaf, Heart } from "lucide-react";
@@ -211,6 +212,7 @@ export default function HomePage() {
         onOpenChange={setBookingModalOpen}
         selectedPackage={selectedPackage}
       />
+      <ChatBot />
     </div>
   );
 }
