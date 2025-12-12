@@ -47,9 +47,9 @@ export default function ChatBot({ onBookNow }: ChatBotProps) {
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi! I'm the Foam Works Party Co assistant. I can help you with:\n\n• Book a new reservation\n• View or update your booking\n• Reschedule your event\n• Cancel a booking\n• Get information about our packages\n• Contact the owner\n\nTo get started, do you have your booking number?",
+      content: "Hi! I'm the Foam Works Party Co assistant. I can help you with:\n\n• View or update your booking\n• Reschedule your event\n• Cancel a booking\n• Get information about our packages\n• Contact the owner\n\nTo get started, do you have your booking number?",
       timestamp: new Date(),
-      actions: ["Book a reservation", "I have my booking number", "I don't have my booking number", "Just browsing"],
+      actions: ["I have my booking number", "I don't have my booking number", "Just browsing"],
     },
   ]);
   const [input, setInput] = useState("");
@@ -366,12 +366,11 @@ export default function ChatBot({ onBookNow }: ChatBotProps) {
                               return null;
                             };
                             const icon = getActionIcon(action);
-                            const isPrimary = action === "Book a reservation";
                             
                             return (
                               <Button
                                 key={action}
-                                variant={isPrimary ? "default" : "outline"}
+                                variant="outline"
                                 size="sm"
                                 className="text-sm h-9 justify-start gap-2 w-full"
                                 onClick={() => handleQuickAction(action)}
