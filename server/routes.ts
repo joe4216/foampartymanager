@@ -175,11 +175,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      if (!booking.emailVerified) {
-        res.status(400).json({ error: "Email not verified" });
-        return;
-      }
-
       // Prevent duplicate payments
       if (booking.status === "confirmed" || (booking.amountPaid && booking.amountPaid > 0)) {
         res.status(400).json({ error: "This booking has already been paid" });
@@ -253,11 +248,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const booking = await storage.getBooking(parseInt(bookingId));
       if (!booking) {
         res.status(404).json({ error: "Booking not found" });
-        return;
-      }
-
-      if (!booking.emailVerified) {
-        res.status(400).json({ error: "Email not verified" });
         return;
       }
 

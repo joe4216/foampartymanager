@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, AlertCircle, Clock, Sparkles, CreditCard, Mail, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { CalendarIcon, AlertCircle, Clock, Sparkles, CreditCard, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { SiVenmo } from "react-icons/si";
 import { format } from "date-fns";
 import { useState, useEffect, useMemo } from "react";
@@ -16,7 +16,6 @@ import { useToast } from "@/hooks/use-toast";
 import type { InsertBooking, Booking } from "@shared/schema";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 interface BookingModalProps {
   open: boolean;
@@ -57,7 +56,7 @@ const findPackageValueByLabel = (label: string): string => {
 
 const VENMO_USERNAME = "joe4216";
 
-type BookingStep = "details" | "verification" | "payment";
+type BookingStep = "details" | "payment";
 
 export default function BookingModal({ open, onOpenChange, selectedPackage }: BookingModalProps) {
   const [step, setStep] = useState<BookingStep>("details");
@@ -65,8 +64,6 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "venmo">("card");
   const [bookingId, setBookingId] = useState<number | null>(null);
-  const [verificationCode, setVerificationCode] = useState("");
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [formData, setFormData] = useState({
     customerName: "",
     email: "",
@@ -141,7 +138,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     }
   }, [date, availableTimesForSelectedDate, formData.eventTime]);
 
-  // Step 1: Create booking and send verification
+  // Create booking and proceed to payment step
   const createBookingMutation = useMutation({
     mutationFn: async (booking: InsertBooking) => {
       const res = await apiRequest("POST", "/api/bookings", booking);
@@ -151,10 +148,13 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       }
       return data;
     },
-    onSuccess: async (data: Booking) => {
+    onSuccess: (data: Booking) => {
       setBookingId(data.id);
-      // Immediately send verification email
-      sendVerificationMutation.mutate(data.id);
+      setStep("payment");
+      toast({
+        title: "Booking Details Saved",
+        description: "Now choose your payment method to complete the booking.",
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -162,69 +162,6 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
         description: error.message || "There was an error creating your booking. Please try again.",
         variant: "destructive",
       });
-    },
-  });
-
-  // Send verification email
-  const sendVerificationMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest("POST", "/api/booking/send-verification", { bookingId: id.toString() });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to send verification code");
-      }
-      return data;
-    },
-    onSuccess: (data) => {
-      if (data.alreadyVerified) {
-        setIsEmailVerified(true);
-        setStep("payment");
-        toast({
-          title: "Email Already Verified",
-          description: "Your email was previously verified. You can proceed to payment.",
-        });
-      } else {
-        setStep("verification");
-        toast({
-          title: "Verification Code Sent",
-          description: `We've sent a 6-digit code to ${formData.email}`,
-        });
-      }
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to Send Code",
-        description: error.message || "There was an error sending the verification code. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Verify email code
-  const verifyEmailMutation = useMutation({
-    mutationFn: async ({ id, code }: { id: number; code: string }) => {
-      const res = await apiRequest("POST", "/api/booking/verify-email", { bookingId: id.toString(), code });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Verification failed");
-      }
-      return data;
-    },
-    onSuccess: () => {
-      setIsEmailVerified(true);
-      setStep("payment");
-      toast({
-        title: "Email Verified",
-        description: "Your email has been verified. Now choose your payment method.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Verification Failed",
-        description: error.message || "Invalid or expired code. Please try again.",
-        variant: "destructive",
-      });
-      setVerificationCode("");
     },
   });
 
@@ -331,26 +268,8 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     createBookingMutation.mutate(bookingData);
   };
 
-  const handleVerifyCode = () => {
-    if (!bookingId || verificationCode.length !== 6) return;
-    verifyEmailMutation.mutate({ id: bookingId, code: verificationCode });
-  };
-
-  const handleResendCode = () => {
-    if (!bookingId) return;
-    setVerificationCode("");
-    sendVerificationMutation.mutate(bookingId);
-  };
-
   const handlePayment = () => {
-    if (!bookingId || !isEmailVerified) {
-      toast({
-        title: "Verification Required",
-        description: "Please verify your email before proceeding to payment.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!bookingId) return;
     
     if (paymentMethod === "venmo") {
       processVenmoMutation.mutate(bookingId);
@@ -382,12 +301,9 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     setPaymentMethod("card");
     setStep("details");
     setBookingId(null);
-    setVerificationCode("");
-    setIsEmailVerified(false);
   };
 
-  const isPending = createBookingMutation.isPending || sendVerificationMutation.isPending || 
-    verifyEmailMutation.isPending || processStripeMutation.isPending || processVenmoMutation.isPending;
+  const isPending = createBookingMutation.isPending || processStripeMutation.isPending || processVenmoMutation.isPending;
 
   const handleCancel = () => {
     resetForm();
@@ -424,23 +340,11 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       <div className={`flex items-center gap-2 ${step === "details" ? "text-primary" : "text-muted-foreground"}`}>
         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
           step === "details" ? "bg-primary text-primary-foreground" : 
-          (step === "verification" || step === "payment") ? "bg-primary/20 text-primary" : "bg-muted"
-        }`}>
-          {(step === "verification" || step === "payment") ? <CheckCircle2 className="w-4 h-4" /> : "1"}
-        </div>
-        <span className="text-sm font-medium hidden sm:inline">Details</span>
-      </div>
-      
-      <div className="w-8 h-px bg-border" />
-      
-      <div className={`flex items-center gap-2 ${step === "verification" ? "text-primary" : "text-muted-foreground"}`}>
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-          step === "verification" ? "bg-primary text-primary-foreground" : 
           step === "payment" ? "bg-primary/20 text-primary" : "bg-muted"
         }`}>
-          {step === "payment" ? <CheckCircle2 className="w-4 h-4" /> : "2"}
+          {step === "payment" ? <CheckCircle2 className="w-4 h-4" /> : "1"}
         </div>
-        <span className="text-sm font-medium hidden sm:inline">Verify Email</span>
+        <span className="text-sm font-medium hidden sm:inline">Details</span>
       </div>
       
       <div className="w-8 h-px bg-border" />
@@ -449,7 +353,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
           step === "payment" ? "bg-primary text-primary-foreground" : "bg-muted"
         }`}>
-          3
+          2
         </div>
         <span className="text-sm font-medium hidden sm:inline">Payment</span>
       </div>
@@ -821,7 +725,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
           type="submit" 
           disabled={!isFormComplete || isPending}
           className={`gap-2 ${!isFormComplete ? "bg-muted text-muted-foreground hover:bg-muted" : ""}`}
-          data-testid="button-continue-to-verification"
+          data-testid="button-continue-to-payment"
         >
           {isPending ? (
             <>
@@ -830,8 +734,8 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             </>
           ) : (
             <>
-              <Mail className="w-4 h-4" />
-              Continue to Verification
+              <CreditCard className="w-4 h-4" />
+              Continue to Payment
             </>
           )}
         </Button>
@@ -839,88 +743,13 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     </form>
   );
 
-  const renderVerificationStep = () => (
-    <div className="space-y-6">
-      <div className="text-center space-y-4">
-        <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
-          <Mail className="w-8 h-8 text-primary" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold">Check your email</h3>
-          <p className="text-muted-foreground">
-            We've sent a 6-digit verification code to<br />
-            <span className="font-medium text-foreground">{formData.email}</span>
-          </p>
-        </div>
-      </div>
-      
-      <div className="flex justify-center">
-        <InputOTP 
-          maxLength={6} 
-          value={verificationCode}
-          onChange={setVerificationCode}
-          data-testid="input-verification-code"
-        >
-          <InputOTPGroup>
-            <InputOTPSlot index={0} />
-            <InputOTPSlot index={1} />
-            <InputOTPSlot index={2} />
-            <InputOTPSlot index={3} />
-            <InputOTPSlot index={4} />
-            <InputOTPSlot index={5} />
-          </InputOTPGroup>
-        </InputOTP>
-      </div>
-      
-      <div className="text-center">
-        <p className="text-sm text-muted-foreground mb-2">
-          Didn't receive the code?
-        </p>
-        <Button 
-          variant="link" 
-          onClick={handleResendCode}
-          disabled={sendVerificationMutation.isPending}
-          data-testid="button-resend-code"
-        >
-          {sendVerificationMutation.isPending ? "Sending..." : "Resend code"}
-        </Button>
-      </div>
-      
-      <div className="flex gap-4 justify-center">
-        <Button 
-          variant="outline" 
-          onClick={() => setStep("details")}
-          disabled={isPending}
-          data-testid="button-back-to-details"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-        <Button 
-          onClick={handleVerifyCode}
-          disabled={verificationCode.length !== 6 || verifyEmailMutation.isPending}
-          data-testid="button-verify-code"
-        >
-          {verifyEmailMutation.isPending ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            "Verify Email"
-          )}
-        </Button>
-      </div>
-    </div>
-  );
-
   const renderPaymentStep = () => (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <div className="w-16 h-16 mx-auto bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
-          <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+        <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+          <CreditCard className="w-8 h-8 text-primary" />
         </div>
-        <h3 className="text-lg font-semibold">Email Verified</h3>
+        <h3 className="text-lg font-semibold">Choose Payment Method</h3>
         <p className="text-muted-foreground">
           Choose your payment method to complete your booking
         </p>
@@ -1018,7 +847,6 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
           <DialogTitle className="text-2xl font-['Poppins']">Book Your Foam Party</DialogTitle>
           <DialogDescription>
             {step === "details" && "Fill out your details below to get started."}
-            {step === "verification" && "Verify your email to continue with your booking."}
             {step === "payment" && "Choose your payment method to complete your booking."}
           </DialogDescription>
         </DialogHeader>
@@ -1026,7 +854,6 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
         {renderStepIndicator()}
         
         {step === "details" && renderDetailsStep()}
-        {step === "verification" && renderVerificationStep()}
         {step === "payment" && renderPaymentStep()}
       </DialogContent>
     </Dialog>
