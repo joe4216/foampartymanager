@@ -1,6 +1,6 @@
 import { bookings, users, stripeSettings, type Booking, type InsertBooking, type User, type InsertUser, type StripeSettings } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -15,6 +15,12 @@ export interface IStorage {
   updateBookingStatus(id: number, status: string): Promise<Booking | undefined>;
   updateBookingStripeSession(id: number, stripeSessionId: string): Promise<Booking | undefined>;
   updateBookingPayment(id: number, stripeSessionId: string, amountPaid: number): Promise<Booking | undefined>;
+  
+  // Venmo payment methods
+  createVenmoBooking(booking: InsertBooking, expectedAmount: number): Promise<Booking>;
+  updateVenmoReceipt(id: number, receiptImageUrl: string): Promise<Booking | undefined>;
+  verifyVenmoPayment(id: number, receivedAmount: number, verified: boolean, notes: string): Promise<Booking | undefined>;
+  getPendingVenmoBookings(): Promise<Booking[]>;
   
   createUser(user: InsertUser): Promise<User>;
   getUser(id: number): Promise<User | undefined>;
@@ -83,6 +89,53 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bookings.id, id))
       .returning();
     return booking || undefined;
+  }
+
+  async createVenmoBooking(insertBooking: InsertBooking, expectedAmount: number): Promise<Booking> {
+    const [booking] = await db
+      .insert(bookings)
+      .values({
+        ...insertBooking,
+        paymentMethod: "venmo",
+        expectedAmount,
+        paymentVerified: false,
+      })
+      .returning();
+    return booking;
+  }
+
+  async updateVenmoReceipt(id: number, receiptImageUrl: string): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ receiptImageUrl })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
+  }
+
+  async verifyVenmoPayment(id: number, receivedAmount: number, verified: boolean, notes: string): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ 
+        receivedAmount,
+        paymentVerified: verified,
+        verifiedAt: verified ? new Date() : null,
+        verificationNotes: notes,
+        status: verified ? "confirmed" : "pending",
+        amountPaid: verified ? receivedAmount : null,
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
+  }
+
+  async getPendingVenmoBookings(): Promise<Booking[]> {
+    return await db.select().from(bookings).where(
+      and(
+        eq(bookings.paymentMethod, "venmo"),
+        eq(bookings.paymentVerified, false)
+      )
+    );
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {

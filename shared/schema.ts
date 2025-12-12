@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, serial, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -34,6 +34,14 @@ export const bookings = pgTable("bookings", {
   notes: text("notes"),
   stripeSessionId: text("stripe_session_id"),
   amountPaid: integer("amount_paid"),
+  // Venmo payment tracking fields
+  paymentMethod: text("payment_method").default("stripe"), // "stripe" or "venmo"
+  expectedAmount: integer("expected_amount"), // Amount in cents we expect to receive
+  receivedAmount: integer("received_amount"), // Amount in cents actually received (from AI scan)
+  receiptImageUrl: text("receipt_image_url"), // URL to uploaded Venmo screenshot
+  paymentVerified: boolean("payment_verified").default(false), // Whether payment has been verified
+  verifiedAt: timestamp("verified_at"), // When payment was verified
+  verificationNotes: text("verification_notes"), // Notes about verification (auto-verified, mismatch, etc.)
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -4,6 +4,9 @@ import { storage } from "./storage";
 import { insertBookingSchema, bookingStatusSchema } from "@shared/schema";
 import { setupAuth } from "./auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+import { analyzeVenmoReceipt } from "./openai";
+import fs from "fs";
+import path from "path";
 
 const PACKAGE_PRICES: Record<string, { name: string; amount: number }> = {
   "standard-30min": { name: "Standard Foam Party - 30 minutes", amount: 20000 },
@@ -147,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      // Create booking with Venmo payment note and special status marker
+      // Create booking with Venmo payment note
       const bookingWithNote = {
         ...validatedData,
         notes: validatedData.notes 
@@ -155,13 +158,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : "[VENMO PAYMENT - Awaiting payment to @joe4216]"
       };
       
-      const booking = await storage.createBooking(bookingWithNote);
-      
-      // Update status to indicate awaiting Venmo payment (distinct from card pending)
-      await storage.updateBookingStatus(booking.id, "pending");
+      // Use the new Venmo-specific storage method
+      const booking = await storage.createVenmoBooking(bookingWithNote, packageInfo.amount);
       
       // Return booking info with amount in dollars for Venmo redirect
-      // Note: We store amountPaid as null until owner confirms Venmo payment
       const amountInDollars = packageInfo.amount / 100;
       res.json({ 
         bookingId: booking.id, 
@@ -176,6 +176,170 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Venmo booking error:", error);
       res.status(400).json({ error: "Failed to create Venmo booking" });
+    }
+  });
+
+  // Upload Venmo receipt and analyze with AI
+  app.post("/api/venmo/upload-receipt", async (req, res) => {
+    try {
+      const { bookingId, imageBase64 } = req.body;
+      
+      if (!bookingId || !imageBase64) {
+        res.status(400).json({ error: "Missing booking ID or image" });
+        return;
+      }
+
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        res.status(404).json({ error: "Booking not found" });
+        return;
+      }
+
+      if (booking.paymentMethod !== "venmo") {
+        res.status(400).json({ error: "This booking is not a Venmo payment" });
+        return;
+      }
+
+      // Ensure uploads directory exists
+      const uploadsDir = path.join(process.cwd(), "uploads", "receipts");
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      // Save the image
+      const fileName = `venmo-receipt-${bookingId}-${Date.now()}.jpg`;
+      const filePath = path.join(uploadsDir, fileName);
+      const imageBuffer = Buffer.from(imageBase64, "base64");
+      fs.writeFileSync(filePath, imageBuffer);
+
+      // Update booking with receipt URL
+      const receiptUrl = `/uploads/receipts/${fileName}`;
+      await storage.updateVenmoReceipt(booking.id, receiptUrl);
+
+      // Analyze the receipt with AI
+      const analysis = await analyzeVenmoReceipt(imageBase64);
+      
+      if (analysis.error) {
+        res.json({
+          success: true,
+          receiptUrl,
+          analysis: {
+            amount: null,
+            confidence: "low",
+            message: "Could not read receipt. Owner will verify manually.",
+            needsManualReview: true
+          }
+        });
+        return;
+      }
+
+      // Convert AI-detected amount to cents
+      const receivedAmountCents = analysis.amount ? Math.round(analysis.amount * 100) : null;
+      const expectedAmountCents = booking.expectedAmount || 0;
+      
+      // Check if amounts match (within $0.01 tolerance)
+      const amountsMatch = receivedAmountCents !== null && 
+        Math.abs(receivedAmountCents - expectedAmountCents) < 2;
+
+      if (amountsMatch && analysis.confidence === "high") {
+        // Auto-verify if amounts match and high confidence
+        await storage.verifyVenmoPayment(
+          booking.id, 
+          receivedAmountCents!, 
+          true, 
+          "Auto-verified: Amount matches expected payment"
+        );
+        
+        res.json({
+          success: true,
+          receiptUrl,
+          verified: true,
+          analysis: {
+            amount: analysis.amount,
+            confidence: analysis.confidence,
+            message: "Payment verified! Your booking is confirmed.",
+            needsManualReview: false
+          }
+        });
+      } else {
+        // Flag for manual review
+        const notes = receivedAmountCents === null 
+          ? "AI could not detect amount - needs manual verification"
+          : `Amount mismatch: Expected $${(expectedAmountCents / 100).toFixed(2)}, detected $${analysis.amount?.toFixed(2)}`;
+        
+        await storage.verifyVenmoPayment(
+          booking.id,
+          receivedAmountCents || 0,
+          false,
+          notes
+        );
+
+        res.json({
+          success: true,
+          receiptUrl,
+          verified: false,
+          analysis: {
+            amount: analysis.amount,
+            expectedAmount: expectedAmountCents / 100,
+            confidence: analysis.confidence,
+            message: "Receipt uploaded. Owner will verify shortly.",
+            needsManualReview: true
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Receipt upload error:", error);
+      res.status(500).json({ error: "Failed to upload receipt" });
+    }
+  });
+
+  // Get pending Venmo payments for owner dashboard
+  app.get("/api/venmo/pending", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const pendingBookings = await storage.getPendingVenmoBookings();
+      res.json(pendingBookings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch pending Venmo payments" });
+    }
+  });
+
+  // Manually verify Venmo payment (owner action)
+  app.post("/api/venmo/verify", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const { bookingId, receivedAmount, verified, notes } = req.body;
+      
+      if (!bookingId) {
+        res.status(400).json({ error: "Missing booking ID" });
+        return;
+      }
+
+      // Convert dollars to cents
+      const amountCents = receivedAmount ? Math.round(parseFloat(receivedAmount) * 100) : 0;
+      
+      const booking = await storage.verifyVenmoPayment(
+        parseInt(bookingId),
+        amountCents,
+        verified === true,
+        notes || (verified ? "Manually verified by owner" : "Rejected by owner")
+      );
+
+      if (!booking) {
+        res.status(404).json({ error: "Booking not found" });
+        return;
+      }
+
+      res.json({ success: true, booking });
+    } catch (error) {
+      console.error("Manual verification error:", error);
+      res.status(500).json({ error: "Failed to verify payment" });
     }
   });
 
