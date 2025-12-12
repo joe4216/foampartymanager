@@ -61,6 +61,17 @@ Preferred communication style: Simple, everyday language.
 - `GET /api/bookings` - List all bookings
 - `GET /api/bookings/:id` - Fetch single booking
 - `PATCH /api/bookings/:id/status` - Update booking status
+- `POST /api/create-venmo-booking` - Create booking with Venmo payment method
+- `POST /api/venmo/upload-receipt` - Upload receipt screenshot for AI verification
+- `GET /api/venmo/pending` - Get pending Venmo payments (owner only)
+- `POST /api/venmo/verify` - Manually verify Venmo payment (owner only)
+
+**Venmo Payment Integration**
+- Venmo username: @joe4216
+- AI-powered receipt verification using OpenAI Vision API
+- Auto-verification when detected amount matches expected amount (within $1 tolerance)
+- Manual review queue for mismatched or low-confidence detections
+- Receipt images stored in uploads/receipts directory
 
 **Development Features**
 - Vite middleware integration for HMR during development
@@ -78,8 +89,9 @@ Preferred communication style: Simple, everyday language.
 
 **Database Schema**
 - `users` table with fields: id, username, password, firstName, lastName, phone
-- `bookings` table with fields: id, customerName, email, phone, address, partySize, packageType, eventDate, eventTime, status, notes, createdAt
+- `bookings` table with fields: id, customerName, email, phone, address, partySize, packageType, eventDate, eventTime, status, notes, createdAt, paymentMethod, expectedAmount, receivedAmount, receiptImageUrl, paymentVerified, verifiedAt, verificationNotes
 - Status enum: pending, confirmed, completed, cancelled
+- Payment methods: stripe, venmo
 - Serial primary key with auto-incrementing IDs
 - Timestamp fields with automatic `defaultNow()` for creation tracking
 
