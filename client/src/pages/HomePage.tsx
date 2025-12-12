@@ -212,7 +212,7 @@ export default function HomePage() {
         onOpenChange={setBookingModalOpen}
         selectedPackage={selectedPackage}
       />
-      <ChatBot />
+      <ChatBot onBookNow={() => setBookingModalOpen(true)} />
     </div>
   );
 }

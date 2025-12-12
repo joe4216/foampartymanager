@@ -37,15 +37,19 @@ interface ChatResponse {
   showUploadPrompt?: boolean;
 }
 
-export default function ChatBot() {
+interface ChatBotProps {
+  onBookNow?: () => void;
+}
+
+export default function ChatBot({ onBookNow }: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi! I'm the Foam Works Party Co assistant. I can help you with:\n\n• View or update your booking\n• Reschedule your event\n• Cancel a booking\n• Get information about our packages\n• Contact the owner\n\nTo get started, do you have your booking number?",
+      content: "Hi! I'm the Foam Works Party Co assistant. I can help you with:\n\n• Book a new reservation\n• View or update your booking\n• Reschedule your event\n• Cancel a booking\n• Get information about our packages\n• Contact the owner\n\nTo get started, do you have your booking number?",
       timestamp: new Date(),
-      actions: ["I have my booking number", "I don't have my booking number", "Just browsing"],
+      actions: ["Book a reservation", "I have my booking number", "I don't have my booking number", "Just browsing"],
     },
   ]);
   const [input, setInput] = useState("");
@@ -133,6 +137,13 @@ export default function ChatBot() {
   };
 
   const handleQuickAction = (action: string) => {
+    // Handle "Book a reservation" action - open booking modal and close chat
+    if (action === "Book a reservation" && onBookNow) {
+      setIsOpen(false);
+      onBookNow();
+      return;
+    }
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
