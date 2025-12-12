@@ -34,6 +34,7 @@ interface ChatResponse {
   sessionVerified?: boolean;
   needsNameVerification?: boolean;
   sessionPhone?: string;
+  showUploadPrompt?: boolean;
 }
 
 export default function ChatBot() {
@@ -86,11 +87,14 @@ export default function ChatBot() {
       if (data.sessionPhone) {
         setSessionPhone(data.sessionPhone);
       }
-      // Track if booking has pending payment
-      if (data.bookingInfo) {
-        // Only show upload button for pending status bookings
-        const isPending = data.bookingInfo.status === "pending";
-        setHasPendingPayment(isPending);
+      // Show upload button when server says to (after clicking "Verify Payment")
+      if (data.showUploadPrompt) {
+        setHasPendingPayment(true);
+      } else if (data.bookingInfo) {
+        // Reset if booking is confirmed
+        if (data.bookingInfo.status === "confirmed") {
+          setHasPendingPayment(false);
+        }
       }
     },
     onError: () => {
@@ -169,14 +173,11 @@ export default function ChatBot() {
       return res.json();
     },
     onSuccess: (data) => {
-      let message = "";
+      // Use the message from the server response
+      const message = data.message || "Receipt processed.";
+      
       if (data.verified) {
-        message = "Payment verified! Your booking is now confirmed. Thank you!";
         setHasPendingPayment(false);
-      } else if (data.pendingReview) {
-        message = `Receipt uploaded successfully! We detected $${data.detectedAmount?.toFixed(2) || "unknown"} but the expected amount is $${data.expectedAmount?.toFixed(2)}. The owner will review and confirm your payment shortly.`;
-      } else {
-        message = "Receipt uploaded. The owner will review your payment and confirm your booking soon.";
       }
       
       const assistantMessage: Message = {
@@ -184,7 +185,11 @@ export default function ChatBot() {
         role: "assistant",
         content: message,
         timestamp: new Date(),
-        actions: data.verified ? ["View Booking Details", "Contact Owner"] : ["Contact Owner"],
+        actions: data.verified 
+          ? ["View Booking Details", "Contact Owner"] 
+          : data.success 
+            ? ["Contact Owner"] 
+            : ["Try Again", "Contact Owner"],
       };
       setMessages((prev) => [...prev, assistantMessage]);
     },

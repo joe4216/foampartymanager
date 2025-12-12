@@ -149,41 +149,63 @@ interface ReceiptAnalysisResult {
   amount: number | null;
   confidence: "high" | "medium" | "low";
   rawText: string;
+  isVenmoReceipt: boolean;
+  recipientMatch: boolean;
   error?: string;
 }
 
-export async function analyzeVenmoReceipt(base64Image: string): Promise<ReceiptAnalysisResult> {
+export async function analyzeVenmoReceipt(base64Image: string, expectedRecipient: string = "joe"): Promise<ReceiptAnalysisResult> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: `You are analyzing a Venmo payment screenshot to extract the payment amount. 
-Look for:
-- The payment amount (e.g., "$345.00", "345", etc.)
-- Make sure it's the amount SENT/PAID, not a balance or other number
-- Venmo receipts typically show "You paid [name] $XX.XX"
+          content: `You are a STRICT Venmo payment receipt analyzer. Your job is to verify if an image is a legitimate Venmo payment screenshot.
+
+REQUIREMENTS FOR A VALID VENMO RECEIPT:
+1. Must clearly be from the Venmo app (look for Venmo branding, logo, or UI elements)
+2. Must show a COMPLETED payment (not a request, not a pending transaction)
+3. Must show "You paid" or "Payment to" or similar text indicating money was SENT
+4. Must show a dollar amount that was paid
+5. Must show a recipient name
+
+RED FLAGS (reject these):
+- Random images with just numbers
+- Edited/photoshopped images with obvious text overlays
+- Screenshots from other payment apps (PayPal, Cash App, Zelle, etc.)
+- Balance screens (not payment confirmations)
+- Payment requests (not completed payments)
+- Images that don't look like Venmo's UI at all
 
 Respond with JSON in this exact format:
 {
+  "isVenmoReceipt": true,
   "amount": 345.00,
+  "recipientName": "Joe",
+  "recipientMatch": true,
   "confidence": "high",
-  "rawText": "You paid Joe $345.00"
+  "rawText": "You paid Joe $345.00",
+  "reasoning": "Screenshot shows Venmo payment confirmation with correct UI elements"
 }
 
-- amount should be a number (just the numeric value, no dollar sign)
-- confidence should be "high", "medium", or "low"
-- rawText should be the relevant text you found that shows the payment
+Field descriptions:
+- isVenmoReceipt: true ONLY if this is clearly a Venmo payment confirmation screenshot
+- amount: the dollar amount paid (number, no $ sign), or null if not found
+- recipientName: who the payment was made to
+- recipientMatch: true if the recipient name contains "${expectedRecipient}" (case insensitive)
+- confidence: "high" only if ALL requirements are clearly met, "medium" if some uncertainty, "low" if suspicious
+- rawText: the exact payment text you found
+- reasoning: brief explanation of your analysis
 
-If you cannot find a clear payment amount, set amount to null and explain in rawText.`
+If this is NOT a valid Venmo receipt, set isVenmoReceipt to false and explain why in reasoning.`
         },
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: "Please analyze this Venmo payment screenshot and extract the payment amount."
+              text: "Please analyze this image and verify if it's a legitimate Venmo payment receipt."
             },
             {
               type: "image_url",
@@ -195,7 +217,7 @@ If you cannot find a clear payment amount, set amount to null and explain in raw
         },
       ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 500,
+      max_tokens: 600,
     });
 
     const content = response.choices[0].message.content;
@@ -204,6 +226,8 @@ If you cannot find a clear payment amount, set amount to null and explain in raw
         amount: null,
         confidence: "low",
         rawText: "No response from AI",
+        isVenmoReceipt: false,
+        recipientMatch: false,
         error: "Empty response"
       };
     }
@@ -211,8 +235,10 @@ If you cannot find a clear payment amount, set amount to null and explain in raw
     const result = JSON.parse(content);
     return {
       amount: result.amount,
-      confidence: result.confidence || "medium",
-      rawText: result.rawText || ""
+      confidence: result.confidence || "low",
+      rawText: result.rawText || "",
+      isVenmoReceipt: result.isVenmoReceipt === true,
+      recipientMatch: result.recipientMatch === true,
     };
   } catch (error: any) {
     console.error("OpenAI receipt analysis error:", error);
@@ -220,6 +246,8 @@ If you cannot find a clear payment amount, set amount to null and explain in raw
       amount: null,
       confidence: "low",
       rawText: "",
+      isVenmoReceipt: false,
+      recipientMatch: false,
       error: error.message || "Failed to analyze receipt"
     };
   }

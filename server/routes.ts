@@ -7,6 +7,19 @@ import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClie
 import { analyzeVenmoReceipt, processChatMessage } from "./openai";
 import fs from "fs";
 import path from "path";
+import multer from "multer";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed"));
+    }
+  },
+});
 
 const PACKAGE_PRICES: Record<string, { name: string; amount: number }> = {
   "standard-30min": { name: "Standard Foam Party - 30 minutes", amount: 20000 },
@@ -180,88 +193,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload Venmo receipt and analyze with AI
-  app.post("/api/venmo/upload-receipt", async (req, res) => {
+  app.post("/api/venmo/upload-receipt", (req, res, next) => {
+    upload.single("receipt")(req, res, (err) => {
+      if (err) {
+        if (err instanceof multer.MulterError) {
+          if (err.code === "LIMIT_FILE_SIZE") {
+            return res.json({ success: false, message: "Image too large. Maximum size is 10MB." });
+          }
+          return res.json({ success: false, message: `Upload error: ${err.message}` });
+        }
+        return res.json({ success: false, message: err.message || "Upload failed" });
+      }
+      next();
+    });
+  }, async (req, res) => {
     try {
-      const { bookingId, imageBase64, email } = req.body;
+      const bookingId = req.body.bookingId;
+      const file = req.file;
       
-      if (!bookingId || !imageBase64) {
-        res.status(400).json({ error: "Missing booking ID or image" });
+      if (!bookingId || !file) {
+        res.json({ success: false, message: "Missing booking ID or image" });
         return;
       }
 
       const booking = await storage.getBooking(parseInt(bookingId));
       if (!booking) {
-        res.status(404).json({ error: "Booking not found" });
+        res.json({ success: false, message: "Booking not found" });
         return;
       }
 
       if (booking.paymentMethod !== "venmo") {
-        res.status(400).json({ error: "This booking is not a Venmo payment" });
+        res.json({ success: false, message: "This booking is not a Venmo payment" });
         return;
       }
 
       // Validate booking is still pending verification
       if (booking.paymentVerified) {
-        res.status(400).json({ error: "This booking has already been verified" });
+        res.json({ success: false, message: "This booking has already been verified" });
         return;
       }
 
-      // Validate base64 image (check size and basic format)
-      const maxSizeBytes = 10 * 1024 * 1024; // 10MB max
-      const imageBuffer = Buffer.from(imageBase64, "base64");
+      const imageBuffer = file.buffer;
       
-      if (imageBuffer.length > maxSizeBytes) {
-        res.status(400).json({ error: "Image too large. Maximum size is 10MB." });
+      // Convert buffer to base64 for AI analysis BEFORE saving
+      const imageBase64 = imageBuffer.toString("base64");
+
+      // Analyze the receipt with AI - check if it's a valid Venmo receipt
+      let analysis;
+      try {
+        analysis = await analyzeVenmoReceipt(imageBase64, "joe");
+      } catch (aiError) {
+        console.error("AI analysis error:", aiError);
+        res.json({
+          success: false,
+          verified: false,
+          message: "Could not analyze the image. Please try again or contact the owner.",
+        });
         return;
       }
-
-      // Basic image format validation (check for common image headers)
-      const jpegHeader = Buffer.from([0xFF, 0xD8, 0xFF]);
-      const pngHeader = Buffer.from([0x89, 0x50, 0x4E, 0x47]);
-      const isJpeg = imageBuffer.slice(0, 3).equals(jpegHeader);
-      const isPng = imageBuffer.slice(0, 4).equals(pngHeader);
       
-      if (!isJpeg && !isPng) {
-        res.status(400).json({ error: "Invalid image format. Please upload a JPEG or PNG image." });
+      // Check if it's a valid Venmo receipt - don't save invalid receipts
+      if (!analysis.isVenmoReceipt) {
+        res.json({
+          success: false,
+          verified: false,
+          message: "This doesn't appear to be a valid Venmo payment screenshot. Please upload a screenshot showing your completed Venmo payment to @joe4216.",
+        });
         return;
       }
 
-      // Ensure uploads directory exists
+      // Check if the recipient matches - don't save wrong recipient receipts
+      if (!analysis.recipientMatch) {
+        res.json({
+          success: false,
+          verified: false,
+          message: "This payment doesn't appear to be made to @joe4216. Please upload a screenshot of your payment to the correct Venmo account.",
+        });
+        return;
+      }
+      
+      // Valid Venmo receipt - now save the file
       const uploadsDir = path.join(process.cwd(), "uploads", "receipts");
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
-
-      // Save the image with sanitized filename
-      const extension = isJpeg ? "jpg" : "png";
+      
+      const extension = file.mimetype === "image/png" ? "png" : "jpg";
       const sanitizedBookingId = String(bookingId).replace(/[^0-9]/g, "");
       const fileName = `venmo-receipt-${sanitizedBookingId}-${Date.now()}.${extension}`;
       const filePath = path.join(uploadsDir, fileName);
       fs.writeFileSync(filePath, imageBuffer);
-
-      // Update booking with receipt URL
+      
       const receiptUrl = `/uploads/receipts/${fileName}`;
       await storage.updateVenmoReceipt(booking.id, receiptUrl);
-
-      // Analyze the receipt with AI
-      let analysis;
-      try {
-        analysis = await analyzeVenmoReceipt(imageBase64);
-      } catch (aiError) {
-        console.error("AI analysis error:", aiError);
-        res.json({
-          success: true,
-          receiptUrl,
-          verified: false,
-          analysis: {
-            amount: null,
-            confidence: "low",
-            message: "Could not read receipt. Owner will verify manually.",
-            needsManualReview: true
-          }
-        });
-        return;
-      }
       
       if (analysis.error || analysis.amount === null) {
         // Update booking with pending status for manual review
@@ -269,19 +293,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           booking.id,
           0,
           false,
-          "AI could not detect amount - needs manual verification"
+          "Valid Venmo receipt but could not detect amount - needs manual verification"
         );
         
         res.json({
           success: true,
           receiptUrl,
           verified: false,
-          analysis: {
-            amount: null,
-            confidence: "low",
-            message: "Could not read receipt. Owner will verify manually.",
-            needsManualReview: true
-          }
+          pendingReview: true,
+          message: "Receipt uploaded! We couldn't automatically detect the amount. The owner will verify and confirm your booking shortly.",
         });
         return;
       }
@@ -299,25 +319,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           booking.id, 
           receivedAmountCents, 
           true, 
-          "Auto-verified: Amount matches expected payment"
+          "Auto-verified: Valid Venmo receipt with matching amount"
         );
         
         res.json({
           success: true,
           receiptUrl,
           verified: true,
-          analysis: {
-            amount: analysis.amount,
-            confidence: analysis.confidence,
-            message: "Payment verified! Your booking is confirmed.",
-            needsManualReview: false
-          }
+          message: "Payment verified! Your booking is now confirmed.",
+          bookingId: booking.id,
         });
       } else {
         // Flag for manual review
         const notes = amountsMatch 
-          ? `Low confidence detection - needs manual verification (detected $${analysis.amount.toFixed(2)})`
-          : `Amount mismatch: Expected $${(expectedAmountCents / 100).toFixed(2)}, detected $${analysis.amount.toFixed(2)}`;
+          ? `Valid Venmo receipt, low confidence - needs manual verification (detected $${analysis.amount.toFixed(2)})`
+          : `Valid Venmo receipt, amount mismatch: Expected $${(expectedAmountCents / 100).toFixed(2)}, detected $${analysis.amount.toFixed(2)}`;
         
         await storage.verifyVenmoPayment(
           booking.id,
@@ -330,20 +346,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: true,
           receiptUrl,
           verified: false,
-          analysis: {
-            amount: analysis.amount,
-            expectedAmount: expectedAmountCents / 100,
-            confidence: analysis.confidence,
-            message: "Receipt uploaded. Owner will verify shortly.",
-            needsManualReview: true
-          }
+          pendingReview: true,
+          detectedAmount: analysis.amount,
+          expectedAmount: expectedAmountCents / 100,
+          message: "Receipt uploaded! The amount needs verification. The owner will confirm your booking shortly.",
         });
       }
     } catch (error) {
       console.error("Receipt upload error:", error);
-      res.status(500).json({ error: "Failed to upload receipt" });
+      res.json({ success: false, message: "Something went wrong processing your receipt. Please try again or contact the owner." });
     }
   });
+
+  // Serve uploaded receipts
+  app.use("/uploads", (await import("express")).default.static(path.join(process.cwd(), "uploads")));
 
   // Get pending Venmo payments for owner dashboard
   app.get("/api/venmo/pending", async (req, res) => {
@@ -615,7 +631,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Determine actions based on booking state
+      // Determine actions and message based on booking state
+      let responseMessage = aiResponse.message;
+      let showUploadPrompt = false;
+      
       if (responseBooking) {
         const isPaid = responseBooking.status === "confirmed";
         
@@ -624,8 +643,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (isPaid) {
           actions = ["Reschedule", "Cancel Booking", "Contact Owner"];
         } else {
-          // Payment pending
-          actions = ["Complete Payment", "Cancel Booking", "Contact Owner"];
+          // Payment pending - show verification options
+          // Check if user clicked "Verify Payment"
+          if (message === "Verify Payment") {
+            responseMessage = "Please upload a screenshot of your Venmo payment to @joe4216. Make sure the screenshot shows:\n\n• The Venmo payment confirmation\n• The correct amount you paid\n• The date of payment\n\nClick the paperclip button below to upload your screenshot.";
+            showUploadPrompt = true;
+            actions = ["Cancel Booking", "Contact Owner"];
+          } else {
+            // First time seeing pending payment
+            responseMessage = `I found your booking! Looks like your payment is still pending. I can verify your payment for you.\n\n📦 Package: ${responseBooking.packageType}\n📅 Date: ${responseBooking.eventDate}\n⏰ Time: ${responseBooking.eventTime}\n💰 Status: Payment Pending\n\nHow would you like to proceed?`;
+            actions = ["Verify Payment", "Cancel Booking", "Contact Owner"];
+          }
         }
 
         // Handle reschedule intent if payment is confirmed
@@ -653,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({
-        message: aiResponse.message,
+        message: responseMessage,
         bookingInfo: responseBooking ? {
           id: responseBooking.id,
           customerName: responseBooking.customerName,
@@ -669,6 +697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionVerified: !!responseBooking,
         needsNameVerification,
         sessionPhone: multipleBookingsPhone || sessionPhone,
+        showUploadPrompt,
       });
     } catch (error) {
       console.error("Chat error:", error);
