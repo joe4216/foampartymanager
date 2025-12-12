@@ -159,6 +159,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create checkout session for an existing verified booking
+  app.post("/api/create-checkout-session-for-booking", async (req, res) => {
+    try {
+      const { bookingId } = req.body;
+      
+      if (!bookingId) {
+        res.status(400).json({ error: "Missing booking ID" });
+        return;
+      }
+
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        res.status(404).json({ error: "Booking not found" });
+        return;
+      }
+
+      if (!booking.emailVerified) {
+        res.status(400).json({ error: "Email not verified" });
+        return;
+      }
+
+      // Prevent duplicate payments
+      if (booking.status === "confirmed" || (booking.amountPaid && booking.amountPaid > 0)) {
+        res.status(400).json({ error: "This booking has already been paid" });
+        return;
+      }
+
+      const packageInfo = PACKAGE_PRICES[booking.packageType];
+      if (!packageInfo) {
+        res.status(400).json({ error: "Invalid package type" });
+        return;
+      }
+
+      const stripe = await getUncachableStripeClient();
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      
+      const stripeSettings = await storage.getStripeSettings();
+      const connectedAccountId = stripeSettings?.stripeAccountStatus === 'active' 
+        ? stripeSettings.stripeAccountId 
+        : null;
+      
+      const sessionParams: any = {
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: packageInfo.name,
+              description: `Event Date: ${booking.eventDate} at ${booking.eventTime}`,
+            },
+            unit_amount: packageInfo.amount,
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${baseUrl}/booking-success?session_id={CHECKOUT_SESSION_ID}&booking_id=${booking.id}`,
+        cancel_url: `${baseUrl}/booking-cancelled?booking_id=${booking.id}`,
+        customer_email: booking.email,
+        metadata: {
+          bookingId: booking.id.toString(),
+        },
+      };
+
+      if (connectedAccountId) {
+        sessionParams.payment_intent_data = {
+          transfer_data: {
+            destination: connectedAccountId,
+          },
+        };
+      }
+
+      const session = await stripe.checkout.sessions.create(sessionParams);
+      await storage.updateBookingStripeSession(booking.id, session.id);
+
+      res.json({ url: session.url, bookingId: booking.id });
+    } catch (error) {
+      console.error("Checkout session for booking error:", error);
+      res.status(400).json({ error: "Failed to create checkout session" });
+    }
+  });
+
+  // Process Venmo payment for an existing verified booking
+  app.post("/api/process-venmo-booking", async (req, res) => {
+    try {
+      const { bookingId } = req.body;
+      
+      if (!bookingId) {
+        res.status(400).json({ error: "Missing booking ID" });
+        return;
+      }
+
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        res.status(404).json({ error: "Booking not found" });
+        return;
+      }
+
+      if (!booking.emailVerified) {
+        res.status(400).json({ error: "Email not verified" });
+        return;
+      }
+
+      // Prevent duplicate payments
+      if (booking.status === "confirmed" || (booking.amountPaid && booking.amountPaid > 0)) {
+        res.status(400).json({ error: "This booking has already been paid" });
+        return;
+      }
+
+      const packageInfo = PACKAGE_PRICES[booking.packageType];
+      if (!packageInfo) {
+        res.status(400).json({ error: "Invalid package type" });
+        return;
+      }
+
+      // Update booking with Venmo payment info
+      const updatedNotes = booking.notes 
+        ? `${booking.notes}\n\n[VENMO PAYMENT - Awaiting payment to @joe4216]`
+        : "[VENMO PAYMENT - Awaiting payment to @joe4216]";
+      
+      await storage.updateBookingForVenmo(booking.id, packageInfo.amount, updatedNotes);
+
+      const amountInDollars = packageInfo.amount / 100;
+      res.json({ 
+        bookingId: booking.id, 
+        amount: amountInDollars,
+        amountCents: packageInfo.amount,
+        packageName: packageInfo.name,
+        eventDate: booking.eventDate,
+        eventTime: booking.eventTime,
+        email: booking.email,
+        success: true 
+      });
+    } catch (error) {
+      console.error("Process Venmo booking error:", error);
+      res.status(400).json({ error: "Failed to process Venmo booking" });
+    }
+  });
+
   // Venmo booking endpoint - creates booking with Venmo payment method
   app.post("/api/create-venmo-booking", async (req, res) => {
     try {

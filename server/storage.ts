@@ -21,6 +21,7 @@ export interface IStorage {
   updateVenmoReceipt(id: number, receiptImageUrl: string): Promise<Booking | undefined>;
   verifyVenmoPayment(id: number, receivedAmount: number, verified: boolean, notes: string): Promise<Booking | undefined>;
   getPendingVenmoBookings(): Promise<Booking[]>;
+  updateBookingForVenmo(id: number, expectedAmount: number, notes: string): Promise<Booking | undefined>;
   
   // Chat/booking lookup methods
   getBookingByEmail(email: string): Promise<Booking | undefined>;
@@ -124,6 +125,20 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return booking;
+  }
+
+  async updateBookingForVenmo(id: number, expectedAmount: number, notes: string): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ 
+        paymentMethod: "venmo",
+        expectedAmount,
+        paymentVerified: false,
+        notes
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
   }
 
   async updateVenmoReceipt(id: number, receiptImageUrl: string): Promise<Booking | undefined> {
