@@ -14,6 +14,7 @@ import PaymentsSettings from "@/pages/PaymentsSettings";
 import AuthPage from "@/pages/AuthPage";
 import BookingSuccess from "@/pages/BookingSuccess";
 import BookingCancelled from "@/pages/BookingCancelled";
+import VenmoBookingSuccess from "@/pages/VenmoBookingSuccess";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/booking-success" component={BookingSuccess} />
       <Route path="/booking-cancelled" component={BookingCancelled} />
+      <Route path="/venmo-booking-success" component={VenmoBookingSuccess} />
       <ProtectedRoute 
         path="/owner/dashboard" 
         component={() => (

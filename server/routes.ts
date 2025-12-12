@@ -136,6 +136,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Venmo booking endpoint - creates booking with Venmo payment method
+  app.post("/api/create-venmo-booking", async (req, res) => {
+    try {
+      const validatedData = insertBookingSchema.parse(req.body);
+      const packageInfo = PACKAGE_PRICES[validatedData.packageType];
+      
+      if (!packageInfo) {
+        res.status(400).json({ error: "Invalid package type" });
+        return;
+      }
+
+      // Create booking with Venmo payment note and special status marker
+      const bookingWithNote = {
+        ...validatedData,
+        notes: validatedData.notes 
+          ? `${validatedData.notes}\n\n[VENMO PAYMENT - Awaiting payment to @joe4216]`
+          : "[VENMO PAYMENT - Awaiting payment to @joe4216]"
+      };
+      
+      const booking = await storage.createBooking(bookingWithNote);
+      
+      // Update status to indicate awaiting Venmo payment (distinct from card pending)
+      await storage.updateBookingStatus(booking.id, "pending");
+      
+      // Return booking info with amount in dollars for Venmo redirect
+      // Note: We store amountPaid as null until owner confirms Venmo payment
+      const amountInDollars = packageInfo.amount / 100;
+      res.json({ 
+        bookingId: booking.id, 
+        amount: amountInDollars,
+        amountCents: packageInfo.amount,
+        packageName: packageInfo.name,
+        eventDate: validatedData.eventDate,
+        eventTime: validatedData.eventTime,
+        email: validatedData.email,
+        success: true 
+      });
+    } catch (error) {
+      console.error("Venmo booking error:", error);
+      res.status(400).json({ error: "Failed to create Venmo booking" });
+    }
+  });
+
   app.post("/api/verify-payment", async (req, res) => {
     try {
       const { sessionId, bookingId } = req.body;

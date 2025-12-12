@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, AlertCircle, Clock, Sparkles } from "lucide-react";
+import { CalendarIcon, AlertCircle, Clock, Sparkles, CreditCard } from "lucide-react";
+import { SiVenmo } from "react-icons/si";
 import { format } from "date-fns";
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -53,9 +54,12 @@ const findPackageValueByLabel = (label: string): string => {
   return pkg ? pkg.value : "";
 };
 
+const VENMO_USERNAME = "joe4216";
+
 export default function BookingModal({ open, onOpenChange, selectedPackage }: BookingModalProps) {
   const [date, setDate] = useState<Date>();
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "venmo">("card");
   const [formData, setFormData] = useState({
     customerName: "",
     email: "",
@@ -149,6 +153,48 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     },
   });
 
+  const createVenmoBookingMutation = useMutation({
+    mutationFn: async (booking: InsertBooking) => {
+      const res = await apiRequest("POST", "/api/create-venmo-booking", booking);
+      return await res.json();
+    },
+    onSuccess: (data: { bookingId: number; amount: number; packageName: string; eventDate: string; eventTime: string; email: string }) => {
+      // Invalidate bookings cache so dashboard shows new booking
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      
+      // Open Venmo with pre-filled payment info
+      const note = encodeURIComponent(`Foam Works Party - Booking #${data.bookingId} - ${data.packageName}`);
+      const venmoUrl = `https://venmo.com/${VENMO_USERNAME}?txn=pay&amount=${data.amount}&note=${note}`;
+      
+      // Show success message and open Venmo
+      toast({
+        title: "Booking Created!",
+        description: `Please complete your $${data.amount} payment via Venmo. Opening Venmo now...`,
+      });
+      
+      // Open Venmo in new tab
+      window.open(venmoUrl, '_blank');
+      
+      // Redirect to success page with all needed data in URL
+      const params = new URLSearchParams({
+        booking_id: data.bookingId.toString(),
+        amount: data.amount.toString(),
+        package: data.packageName,
+        date: data.eventDate,
+        time: data.eventTime,
+        email: data.email
+      });
+      window.location.href = `/venmo-booking-success?${params.toString()}`;
+    },
+    onError: () => {
+      toast({
+        title: "Booking Failed",
+        description: "There was an error creating your booking. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!date) {
@@ -183,7 +229,11 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       notes: formData.notes || null,
     };
 
-    createBookingMutation.mutate(bookingData);
+    if (paymentMethod === "venmo") {
+      createVenmoBookingMutation.mutate(bookingData);
+    } else {
+      createBookingMutation.mutate(bookingData);
+    }
   };
 
   const updateField = (field: string, value: string) => {
@@ -206,7 +256,10 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     });
     setDate(undefined);
     setCalendarOpen(false);
+    setPaymentMethod("card");
   };
+
+  const isPending = createBookingMutation.isPending || createVenmoBookingMutation.isPending;
 
   const handleCancel = () => {
     resetForm();
@@ -598,23 +651,73 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             />
           </div>
           
+          <div className="space-y-3">
+            <Label>Payment Method *</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("card")}
+                className={`p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${
+                  paymentMethod === "card"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover-elevate"
+                }`}
+                data-testid="payment-method-card"
+              >
+                <CreditCard className="w-5 h-5" />
+                <div className="text-left">
+                  <div className="font-semibold">Card Payment</div>
+                  <div className="text-xs text-muted-foreground">Credit/Debit, Apple Pay</div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("venmo")}
+                className={`p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${
+                  paymentMethod === "venmo"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover-elevate"
+                }`}
+                data-testid="payment-method-venmo"
+              >
+                <SiVenmo className="w-5 h-5 text-[#3D95CE]" />
+                <div className="text-left">
+                  <div className="font-semibold">Venmo</div>
+                  <div className="text-xs text-muted-foreground">@{VENMO_USERNAME}</div>
+                </div>
+              </button>
+            </div>
+          </div>
+          
           <div className="flex gap-4 justify-end">
             <Button 
               type="button" 
               variant="outline" 
               onClick={handleCancel}
-              disabled={createBookingMutation.isPending}
+              disabled={isPending}
               data-testid="button-cancel-booking"
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
-              disabled={!isFormComplete || createBookingMutation.isPending}
-              className={!isFormComplete ? "bg-muted text-muted-foreground hover:bg-muted" : ""}
+              disabled={!isFormComplete || isPending}
+              className={`gap-2 ${!isFormComplete ? "bg-muted text-muted-foreground hover:bg-muted" : ""}`}
               data-testid="button-submit-booking"
             >
-              {createBookingMutation.isPending ? "Processing..." : "Continue to Payment"}
+              {isPending ? (
+                "Processing..."
+              ) : paymentMethod === "venmo" ? (
+                <>
+                  <SiVenmo className="w-4 h-4" />
+                  Pay with Venmo
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-4 h-4" />
+                  Continue to Payment
+                </>
+              )}
             </Button>
           </div>
         </form>
