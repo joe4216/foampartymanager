@@ -149,7 +149,14 @@ export default function NewsFeed() {
           <p className="text-muted-foreground mb-4">
             Want to see your event featured here?
           </p>
-          <Button size="lg" data-testid="button-book-your-party">
+          <Button 
+            size="lg" 
+            data-testid="button-book-your-party"
+            onClick={() => {
+              const packagesSection = document.getElementById('packages-section');
+              packagesSection?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
             Book Your Party Today
           </Button>
         </div>
