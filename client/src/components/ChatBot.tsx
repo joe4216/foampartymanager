@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, X, Send, Loader2, User, Bot } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, User, Bot, Paperclip, ImageIcon, CheckCircle, AlertCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -49,7 +50,10 @@ export default function ChatBot() {
   const [input, setInput] = useState("");
   const [sessionBookingId, setSessionBookingId] = useState<string | null>(null);
   const [sessionPhone, setSessionPhone] = useState<string | null>(null);
+  const [hasPendingPayment, setHasPendingPayment] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const chatMutation = useMutation({
     mutationFn: async (userMessage: string) => {
@@ -81,6 +85,12 @@ export default function ChatBot() {
       }
       if (data.sessionPhone) {
         setSessionPhone(data.sessionPhone);
+      }
+      // Track if booking has pending payment
+      if (data.bookingInfo) {
+        // Only show upload button for pending status bookings
+        const isPending = data.bookingInfo.status === "pending";
+        setHasPendingPayment(isPending);
       }
     },
     onError: () => {
@@ -137,6 +147,106 @@ export default function ChatBot() {
       return [...updated, userMessage];
     });
     chatMutation.mutate(action);
+  };
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("receipt", file);
+      formData.append("bookingId", sessionBookingId || "");
+      
+      const res = await fetch("/api/venmo/upload-receipt", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Upload failed");
+      }
+      
+      return res.json();
+    },
+    onSuccess: (data) => {
+      let message = "";
+      if (data.verified) {
+        message = "Payment verified! Your booking is now confirmed. Thank you!";
+        setHasPendingPayment(false);
+      } else if (data.pendingReview) {
+        message = `Receipt uploaded successfully! We detected $${data.detectedAmount?.toFixed(2) || "unknown"} but the expected amount is $${data.expectedAmount?.toFixed(2)}. The owner will review and confirm your payment shortly.`;
+      } else {
+        message = "Receipt uploaded. The owner will review your payment and confirm your booking soon.";
+      }
+      
+      const assistantMessage: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: message,
+        timestamp: new Date(),
+        actions: data.verified ? ["View Booking Details", "Contact Owner"] : ["Contact Owner"],
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `Sorry, there was an issue uploading your receipt: ${error.message}. Please try again or contact the owner directly.`,
+          timestamp: new Date(),
+          actions: ["Contact Owner"],
+        },
+      ]);
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file",
+        description: "Please upload an image file (PNG, JPG, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Add user message showing they're uploading
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: `Uploading payment receipt: ${file.name}`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    
+    // Upload the file
+    uploadMutation.mutate(file);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   useEffect(() => {
@@ -265,19 +375,43 @@ export default function ChatBot() {
             </ScrollArea>
 
             <div className="p-3 border-t">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept="image/*"
+                className="hidden"
+                data-testid="input-receipt-upload"
+              />
               <div className="flex gap-2">
+                {sessionBookingId && hasPendingPayment && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadMutation.isPending || chatMutation.isPending}
+                    title="Upload Venmo receipt"
+                    data-testid="button-upload-receipt"
+                  >
+                    {uploadMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Paperclip className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
-                  placeholder="Type your message..."
-                  disabled={chatMutation.isPending}
+                  placeholder={sessionBookingId && hasPendingPayment ? "Type or upload receipt..." : "Type your message..."}
+                  disabled={chatMutation.isPending || uploadMutation.isPending}
                   className="flex-1"
                   data-testid="input-chat-message"
                 />
                 <Button
                   onClick={handleSend}
-                  disabled={!input.trim() || chatMutation.isPending}
+                  disabled={!input.trim() || chatMutation.isPending || uploadMutation.isPending}
                   size="icon"
                   data-testid="button-chat-send"
                 >
