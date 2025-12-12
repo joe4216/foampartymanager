@@ -121,10 +121,10 @@ Respond with JSON in this format:
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o-mini",
       messages,
       response_format: { type: "json_object" },
-      max_completion_tokens: 800,
+      max_tokens: 500,
     });
 
     const content = response.choices[0].message.content;
