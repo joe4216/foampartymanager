@@ -372,7 +372,7 @@ export default function ChatBot({ onBookNow }: ChatBotProps) {
                                 key={action}
                                 variant="outline"
                                 size="sm"
-                                className="text-sm h-9 justify-start gap-2 w-full"
+                                className="text-[13px] h-9 justify-start gap-2 w-full"
                                 onClick={() => handleQuickAction(action)}
                                 data-testid={`chat-action-${action.toLowerCase().replace(/\s+/g, '-')}`}
                               >
