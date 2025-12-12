@@ -73,6 +73,14 @@ Preferred communication style: Simple, everyday language.
 - Manual review queue for mismatched or low-confidence detections
 - Receipt images stored in uploads/receipts directory
 
+**AI Chatbot**
+- Floating chat widget on homepage (bottom-right corner)
+- OpenAI-powered natural language understanding
+- Capabilities: booking lookup, reschedule, cancel, package info, contact owner
+- Booking verification by email or phone number
+- Context-aware conversation with booking details
+- Quick action buttons for common tasks
+
 **Development Features**
 - Vite middleware integration for HMR during development
 - Custom error overlay plugin for runtime error visibility
