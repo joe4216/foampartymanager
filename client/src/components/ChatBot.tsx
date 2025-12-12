@@ -129,18 +129,31 @@ export default function ChatBot() {
   return (
     <>
       {!isOpen && (
-        <Button
+        <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-xl z-[9999]"
-          size="icon"
+          className="h-14 w-14 rounded-full shadow-xl bg-primary text-primary-foreground flex items-center justify-center hover-elevate"
+          style={{ 
+            position: 'fixed', 
+            bottom: '24px', 
+            right: '24px', 
+            zIndex: 9999 
+          }}
           data-testid="button-chat-launch"
         >
           <MessageCircle className="h-7 w-7" />
-        </Button>
+        </button>
       )}
 
       {isOpen && (
-        <Card className="fixed bottom-6 right-6 w-[380px] h-[550px] flex flex-col shadow-2xl z-[9999] border-2">
+        <Card 
+          className="w-[380px] h-[550px] flex flex-col shadow-2xl border-2"
+          style={{ 
+            position: 'fixed', 
+            bottom: '24px', 
+            right: '24px', 
+            zIndex: 9999 
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-2 py-3 px-4 border-b bg-primary text-primary-foreground rounded-t-lg">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5" />
