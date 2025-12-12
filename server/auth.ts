@@ -90,7 +90,16 @@ export function setupAuth(app: Express) {
 
     const existingUser = await storage.getUserByUsername(username);
     if (existingUser) {
-      return res.status(400).send("Username already exists");
+      return res.status(400).json({ message: "Username already exists" });
+    }
+
+    // Check if email is already registered
+    const existingEmail = await storage.getUserByEmail(email);
+    if (existingEmail) {
+      return res.status(409).json({ 
+        message: "An account with this email already exists",
+        existingAccount: true
+      });
     }
 
     // Create user but DON'T auto-login - require email verification first

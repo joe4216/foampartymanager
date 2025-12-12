@@ -11,6 +11,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type LoginStep = "credentials" | "email-setup" | "verification";
 type RegisterStep = "form" | "verification";
@@ -41,6 +51,7 @@ export default function AuthPage() {
   });
 
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  const [showExistingAccountAlert, setShowExistingAccountAlert] = useState(false);
 
   const requestCodeMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
@@ -123,8 +134,17 @@ export default function AuthPage() {
 
   const registerMutation = useMutation({
     mutationFn: async (data: { username: string; password: string; firstName: string; lastName: string; phone: string; email: string }) => {
-      const res = await apiRequest("POST", "/api/register", data);
-      return await res.json();
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      const responseData = await res.json();
+      if (!res.ok) {
+        throw { ...responseData, status: res.status };
+      }
+      return responseData;
     },
     onSuccess: (data) => {
       if (data.needsVerification) {
@@ -140,12 +160,16 @@ export default function AuthPage() {
         });
       }
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Registration Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      if (error.existingAccount) {
+        setShowExistingAccountAlert(true);
+      } else {
+        toast({
+          title: "Registration Failed",
+          description: error.message || "Something went wrong",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -449,19 +473,44 @@ export default function AuthPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen flex">
-      <div className="flex-1 flex items-center justify-center p-8 bg-background overflow-y-auto">
-        <div className="w-full max-w-md">
-          <div className="mb-8 text-center">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Sparkles className="w-8 h-8 text-primary" />
-              <h1 className="text-3xl font-bold font-['Poppins']">Foam Works Party Co</h1>
-            </div>
-            <p className="text-muted-foreground">Owner Portal Access</p>
-          </div>
+  const handleSwitchToLogin = () => {
+    setShowExistingAccountAlert(false);
+    // Find and click the login tab
+    const loginTab = document.querySelector('[data-testid="tab-login"]') as HTMLElement;
+    if (loginTab) loginTab.click();
+  };
 
-          <Tabs defaultValue="login" className="w-full">
+  return (
+    <>
+      <AlertDialog open={showExistingAccountAlert} onOpenChange={setShowExistingAccountAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Account Already Exists</AlertDialogTitle>
+            <AlertDialogDescription>
+              It looks like there's already an account with this email address. Would you like to sign in instead?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-existing">Try Different Email</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSwitchToLogin} data-testid="button-go-to-login">
+              Sign In
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="min-h-screen flex">
+        <div className="flex-1 flex items-center justify-center p-8 bg-background overflow-y-auto">
+          <div className="w-full max-w-md">
+            <div className="mb-8 text-center">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Sparkles className="w-8 h-8 text-primary" />
+                <h1 className="text-3xl font-bold font-['Poppins']">Foam Works Party Co</h1>
+              </div>
+              <p className="text-muted-foreground">Owner Portal Access</p>
+            </div>
+
+            <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
               <TabsTrigger value="register" data-testid="tab-register">Register</TabsTrigger>
@@ -731,5 +780,6 @@ export default function AuthPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
