@@ -10,6 +10,16 @@ export const users = pgTable("users", {
   firstName: text("first_name"),
   lastName: text("last_name"),
   phone: text("phone"),
+  email: text("email"),
+});
+
+export const verificationCodes = pgTable("verification_codes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  code: text("code").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  used: boolean("used").default(false),
 });
 
 export const stripeSettings = pgTable("stripe_settings", {
@@ -65,3 +75,4 @@ export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookings.$inferSelect;
 export type BookingStatus = z.infer<typeof bookingStatusSchema>;
 export type StripeSettings = typeof stripeSettings.$inferSelect;
+export type VerificationCode = typeof verificationCodes.$inferSelect;

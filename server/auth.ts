@@ -6,6 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import { sendVerificationCode } from "./email";
 
 declare global {
   namespace Express {
@@ -64,7 +65,17 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/register", async (req, res, next) => {
-    const { username, password, firstName, lastName, phone } = req.body;
+    const { username, password, firstName, lastName, phone, email } = req.body;
+    
+    // Validate email is required
+    if (!email) {
+      return res.status(400).json({ message: "Email is required for account security" });
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
     
     // Validate password requirements
     const passwordErrors = [];
@@ -88,6 +99,7 @@ export function setupAuth(app: Express) {
       firstName,
       lastName,
       phone,
+      email,
     });
 
     req.login(user, (err) => {
@@ -96,8 +108,140 @@ export function setupAuth(app: Express) {
     });
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.status(200).json(sanitizeUser(req.user!));
+  // Step 1: Validate password and send verification code
+  app.post("/api/login/request-code", async (req, res) => {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ message: "Username and password required" });
+    }
+    
+    const user = await storage.getUserByUsername(username);
+    if (!user || !(await comparePasswords(password, user.password))) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+    
+    // Check if user has email configured
+    if (!user.email) {
+      return res.status(400).json({ 
+        message: "No email configured for this account",
+        needsEmail: true,
+        userId: user.id
+      });
+    }
+    
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    await storage.createVerificationCode(user.id, code, expiresAt);
+    
+    // Send email
+    const emailResult = await sendVerificationCode(user.email, code, user.firstName || undefined);
+    
+    if (!emailResult.success) {
+      console.error("Failed to send verification email:", emailResult.error);
+      return res.status(500).json({ message: "Failed to send verification code" });
+    }
+    
+    // Mask email for display
+    const emailParts = user.email.split("@");
+    const maskedEmail = emailParts[0].substring(0, 2) + "***@" + emailParts[1];
+    
+    res.json({ 
+      success: true, 
+      message: "Verification code sent",
+      email: maskedEmail,
+      userId: user.id
+    });
+  });
+  
+  // Step 2: Verify code and complete login
+  app.post("/api/login/verify-code", async (req, res, next) => {
+    const { userId, code } = req.body;
+    
+    if (!userId || !code) {
+      return res.status(400).json({ message: "User ID and code required" });
+    }
+    
+    const verificationCode = await storage.getValidVerificationCode(parseInt(userId), code);
+    
+    if (!verificationCode) {
+      return res.status(401).json({ message: "Invalid or expired code" });
+    }
+    
+    // Mark code as used
+    await storage.markVerificationCodeUsed(verificationCode.id);
+    
+    // Get user and log them in
+    const user = await storage.getUser(parseInt(userId));
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    req.login(user, (err) => {
+      if (err) return next(err);
+      res.status(200).json(sanitizeUser(user));
+    });
+  });
+  
+  // Set up email for user (first-time setup)
+  app.post("/api/login/set-email", async (req, res) => {
+    const { userId, email, password, username } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: "Email required" });
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+    
+    // Verify password again for security
+    const user = await storage.getUserByUsername(username);
+    if (!user || !(await comparePasswords(password, user.password))) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+    
+    if (user.id !== parseInt(userId)) {
+      return res.status(401).json({ message: "User mismatch" });
+    }
+    
+    // Generate and send verification code FIRST before saving email
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    
+    const emailResult = await sendVerificationCode(email, code, user.firstName || undefined);
+    
+    if (!emailResult.success) {
+      console.error("Failed to send verification email:", emailResult.error);
+      return res.status(500).json({ message: "Failed to send verification code. Please try again." });
+    }
+    
+    // Only save email after successful email send
+    await storage.updateUserEmail(user.id, email);
+    await storage.createVerificationCode(user.id, code, expiresAt);
+    
+    const emailParts = email.split("@");
+    const maskedEmail = emailParts[0].substring(0, 2) + "***@" + emailParts[1];
+    
+    res.json({ 
+      success: true, 
+      message: "Email saved and verification code sent",
+      email: maskedEmail,
+      userId: user.id
+    });
+  });
+
+  // Legacy login endpoint - disabled for security (now requires email verification)
+  app.post("/api/login", async (req, res) => {
+    res.status(400).json({ 
+      message: "Please use the updated login flow with email verification",
+      redirect: "/auth"
+    });
   });
 
   app.post("/api/logout", (req, res, next) => {

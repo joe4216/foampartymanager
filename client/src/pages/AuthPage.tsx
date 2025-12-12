@@ -6,25 +6,118 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, Check, X } from "lucide-react";
+import { Sparkles, Check, X, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+
+type LoginStep = "credentials" | "email-setup" | "verification";
 
 export default function AuthPage() {
-  const { user, loginMutation, registerMutation, isLoading } = useAuth();
+  const { user, registerMutation, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
+  const [loginStep, setLoginStep] = useState<LoginStep>("credentials");
   const [loginData, setLoginData] = useState({ username: "", password: "" });
+  const [verificationData, setVerificationData] = useState({ 
+    userId: "", 
+    email: "",
+    newEmail: ""
+  });
+  const [verificationCode, setVerificationCode] = useState("");
+  
   const [registerData, setRegisterData] = useState({ 
     username: "", 
     password: "", 
     confirmPassword: "",
     firstName: "",
     lastName: "",
-    phone: ""
+    phone: "",
+    email: ""
   });
 
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+
+  const requestCodeMutation = useMutation({
+    mutationFn: async (credentials: { username: string; password: string }) => {
+      const res = await apiRequest("POST", "/api/login/request-code", credentials);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      if (data.needsEmail) {
+        setVerificationData({
+          userId: data.userId,
+          email: "",
+          newEmail: ""
+        });
+        setLoginStep("email-setup");
+      } else {
+        setVerificationData({
+          userId: data.userId,
+          email: data.email,
+          newEmail: ""
+        });
+        setLoginStep("verification");
+        toast({
+          title: "Code Sent",
+          description: `A verification code has been sent to ${data.email}`,
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Login Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const setEmailMutation = useMutation({
+    mutationFn: async (data: { userId: string; email: string; username: string; password: string }) => {
+      const res = await apiRequest("POST", "/api/login/set-email", data);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setVerificationData({
+        ...verificationData,
+        email: data.email
+      });
+      setLoginStep("verification");
+      toast({
+        title: "Code Sent",
+        description: `A verification code has been sent to ${data.email}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Set Email",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const verifyCodeMutation = useMutation({
+    mutationFn: async (data: { userId: string; code: string }) => {
+      const res = await apiRequest("POST", "/api/login/verify-code", data);
+      return await res.json();
+    },
+    onSuccess: (user) => {
+      queryClient.setQueryData(["/api/user"], user);
+      setLocation("/owner/dashboard");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Verification Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setVerificationCode("");
+    },
+  });
 
   if (isLoading) {
     return null;
@@ -50,10 +143,38 @@ export default function AuthPage() {
 
   const isPasswordValid = (password: string) => validatePassword(password).length === 0;
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await loginMutation.mutateAsync(loginData);
-    setLocation("/owner/dashboard");
+    requestCodeMutation.mutate(loginData);
+  };
+
+  const handleEmailSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailMutation.mutate({
+      userId: verificationData.userId,
+      email: verificationData.newEmail,
+      username: loginData.username,
+      password: loginData.password
+    });
+  };
+
+  const handleVerifyCode = async (code: string) => {
+    if (code.length === 6) {
+      verifyCodeMutation.mutate({
+        userId: verificationData.userId,
+        code
+      });
+    }
+  };
+
+  const handleResendCode = () => {
+    requestCodeMutation.mutate(loginData);
+  };
+
+  const handleBackToCredentials = () => {
+    setLoginStep("credentials");
+    setVerificationCode("");
+    setVerificationData({ userId: "", email: "", newEmail: "" });
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -82,7 +203,8 @@ export default function AuthPage() {
       password: registerData.password,
       firstName: registerData.firstName,
       lastName: registerData.lastName,
-      phone: registerData.phone
+      phone: registerData.phone,
+      email: registerData.email
     });
     setLocation("/owner/dashboard");
   };
@@ -97,6 +219,186 @@ export default function AuthPage() {
       <span className={met ? "text-green-600" : "text-muted-foreground"}>{text}</span>
     </div>
   );
+
+  const renderLoginContent = () => {
+    switch (loginStep) {
+      case "credentials":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Welcome Back</CardTitle>
+              <CardDescription>
+                Sign in to access your dashboard and manage bookings
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="login-username">Username</Label>
+                  <Input
+                    id="login-username"
+                    type="text"
+                    placeholder="Enter your username"
+                    value={loginData.username}
+                    onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                    required
+                    data-testid="input-login-username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Password</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={loginData.password}
+                    onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                    required
+                    data-testid="input-login-password"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={requestCodeMutation.isPending}
+                  data-testid="button-login"
+                >
+                  {requestCodeMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : "Continue"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        );
+
+      case "email-setup":
+        return (
+          <Card>
+            <CardHeader>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-fit mb-2"
+                onClick={handleBackToCredentials}
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5" />
+                Set Up Email Verification
+              </CardTitle>
+              <CardDescription>
+                For security, we need to send verification codes to your email. Please enter your email address.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleEmailSetup} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="setup-email">Email Address</Label>
+                  <Input
+                    id="setup-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={verificationData.newEmail}
+                    onChange={(e) => setVerificationData({ ...verificationData, newEmail: e.target.value })}
+                    required
+                    data-testid="input-setup-email"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={setEmailMutation.isPending}
+                  data-testid="button-save-email"
+                >
+                  {setEmailMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : "Save & Send Code"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        );
+
+      case "verification":
+        return (
+          <Card>
+            <CardHeader>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-fit mb-2"
+                onClick={handleBackToCredentials}
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5" />
+                Enter Verification Code
+              </CardTitle>
+              <CardDescription>
+                We sent a 6-digit code to {verificationData.email}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={6}
+                    value={verificationCode}
+                    onChange={(value) => {
+                      setVerificationCode(value);
+                      handleVerifyCode(value);
+                    }}
+                    disabled={verifyCodeMutation.isPending}
+                    data-testid="input-verification-code"
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                
+                {verifyCodeMutation.isPending && (
+                  <div className="flex justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                )}
+
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Didn't receive the code?
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleResendCode}
+                    disabled={requestCodeMutation.isPending}
+                    data-testid="button-resend-code"
+                  >
+                    {requestCodeMutation.isPending ? "Sending..." : "Resend Code"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -117,50 +419,7 @@ export default function AuthPage() {
             </TabsList>
 
             <TabsContent value="login">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Welcome Back</CardTitle>
-                  <CardDescription>
-                    Sign in to access your dashboard and manage bookings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="login-username">Username</Label>
-                      <Input
-                        id="login-username"
-                        type="text"
-                        placeholder="Enter your username"
-                        value={loginData.username}
-                        onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-                        required
-                        data-testid="input-login-username"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="login-password">Password</Label>
-                      <Input
-                        id="login-password"
-                        type="password"
-                        placeholder="Enter your password"
-                        value={loginData.password}
-                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                        required
-                        data-testid="input-login-password"
-                      />
-                    </div>
-                    <Button 
-                      type="submit" 
-                      className="w-full" 
-                      disabled={loginMutation.isPending}
-                      data-testid="button-login"
-                    >
-                      {loginMutation.isPending ? "Signing in..." : "Sign In"}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+              {renderLoginContent()}
             </TabsContent>
 
             <TabsContent value="register">
@@ -198,6 +457,22 @@ export default function AuthPage() {
                           data-testid="input-register-lastname"
                         />
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="register-email">Email</Label>
+                      <Input
+                        id="register-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={registerData.email}
+                        onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                        required
+                        data-testid="input-register-email"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Used for verification codes when logging in
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -327,6 +602,12 @@ export default function AuthPage() {
               <div className="w-2 h-2 rounded-full bg-primary mt-2" />
               <p className="text-muted-foreground">
                 Kanban board for workflow management
+              </p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-primary mt-2" />
+              <p className="text-muted-foreground">
+                Secure email verification for login
               </p>
             </div>
           </div>

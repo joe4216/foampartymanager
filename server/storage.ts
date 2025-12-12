@@ -1,6 +1,6 @@
-import { bookings, users, stripeSettings, type Booking, type InsertBooking, type User, type InsertUser, type StripeSettings } from "@shared/schema";
+import { bookings, users, stripeSettings, verificationCodes, type Booking, type InsertBooking, type User, type InsertUser, type StripeSettings, type VerificationCode } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, gt } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -36,6 +36,12 @@ export interface IStorage {
   
   getStripeSettings(): Promise<StripeSettings | null>;
   updateStripeSettings(accountId: string, status: string, email?: string): Promise<StripeSettings>;
+  
+  // Verification code methods
+  createVerificationCode(userId: number, code: string, expiresAt: Date): Promise<VerificationCode>;
+  getValidVerificationCode(userId: number, code: string): Promise<VerificationCode | undefined>;
+  markVerificationCodeUsed(id: number): Promise<void>;
+  updateUserEmail(userId: number, email: string): Promise<User | undefined>;
   
   sessionStore: session.Store;
 }
@@ -275,6 +281,45 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  async createVerificationCode(userId: number, code: string, expiresAt: Date): Promise<VerificationCode> {
+    const [verificationCode] = await db
+      .insert(verificationCodes)
+      .values({ userId, code, expiresAt })
+      .returning();
+    return verificationCode;
+  }
+
+  async getValidVerificationCode(userId: number, code: string): Promise<VerificationCode | undefined> {
+    const [verificationCode] = await db
+      .select()
+      .from(verificationCodes)
+      .where(
+        and(
+          eq(verificationCodes.userId, userId),
+          eq(verificationCodes.code, code),
+          eq(verificationCodes.used, false),
+          gt(verificationCodes.expiresAt, new Date())
+        )
+      );
+    return verificationCode || undefined;
+  }
+
+  async markVerificationCodeUsed(id: number): Promise<void> {
+    await db
+      .update(verificationCodes)
+      .set({ used: true })
+      .where(eq(verificationCodes.id, id));
+  }
+
+  async updateUserEmail(userId: number, email: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ email })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
   }
 }
 

@@ -96,15 +96,25 @@ Preferred communication style: Simple, everyday language.
 - Schema-first approach with automatic TypeScript type inference
 
 **Database Schema**
-- `users` table with fields: id, username, password, firstName, lastName, phone
+- `users` table with fields: id, username, password, firstName, lastName, phone, email
+- `verification_codes` table with fields: id, user_id, code, expires_at, created_at, used
 - `bookings` table with fields: id, customerName, email, phone, address, partySize, packageType, eventDate, eventTime, status, notes, createdAt, paymentMethod, expectedAmount, receivedAmount, receiptImageUrl, paymentVerified, verifiedAt, verificationNotes
 - Status enum: pending, confirmed, completed, cancelled
 - Payment methods: stripe, venmo
 - Serial primary key with auto-incrementing IDs
 - Timestamp fields with automatic `defaultNow()` for creation tracking
 
-**Planned Features**
-- SMS verification via Twilio (pending user setup of Twilio credentials)
+**Email Verification for Owner Login**
+- Two-step authentication: password verification followed by email code
+- Uses Resend API for sending verification emails (RESEND_API_KEY secret required)
+- 6-digit codes expire after 10 minutes
+- First-time login prompts user to set up email address
+- Endpoints: POST /api/login/request-code, POST /api/login/verify-code, POST /api/login/set-email
+- Email service in server/email.ts using Resend SDK
+
+**Note on Twilio SMS**
+- SMS verification via Twilio was initially planned but user's Twilio account is restricted
+- Contact compliance-review@twilio.com to lift restrictions if SMS is needed in future
 
 **Data Access Pattern**
 - Repository pattern via `DatabaseStorage` class
