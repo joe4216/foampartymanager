@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, X, Send, Loader2, User, Bot, Paperclip, ImageIcon, CheckCircle, AlertCircle } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, User, Bot, Paperclip, ImageIcon, CheckCircle, AlertCircle, CalendarPlus, Hash, Phone, Info, XCircle, CreditCard, Mail } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -353,19 +353,35 @@ export default function ChatBot({ onBookNow }: ChatBotProps) {
                       )}
                       
                       {message.actions && message.actions.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {message.actions.map((action) => (
-                            <Button
-                              key={action}
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7"
-                              onClick={() => handleQuickAction(action)}
-                              data-testid={`chat-action-${action.toLowerCase().replace(/\s+/g, '-')}`}
-                            >
-                              {action}
-                            </Button>
-                          ))}
+                        <div className="mt-3 flex flex-col gap-2">
+                          {message.actions.map((action) => {
+                            const getActionIcon = (actionText: string) => {
+                              if (actionText === "Book a reservation") return <CalendarPlus className="h-4 w-4" />;
+                              if (actionText === "I have my booking number") return <Hash className="h-4 w-4" />;
+                              if (actionText === "I don't have my booking number") return <Phone className="h-4 w-4" />;
+                              if (actionText === "Just browsing") return <Info className="h-4 w-4" />;
+                              if (actionText === "Cancel Booking") return <XCircle className="h-4 w-4" />;
+                              if (actionText === "Verify Payment") return <CreditCard className="h-4 w-4" />;
+                              if (actionText === "Contact Owner") return <Mail className="h-4 w-4" />;
+                              return null;
+                            };
+                            const icon = getActionIcon(action);
+                            const isPrimary = action === "Book a reservation";
+                            
+                            return (
+                              <Button
+                                key={action}
+                                variant={isPrimary ? "default" : "outline"}
+                                size="sm"
+                                className="text-sm h-9 justify-start gap-2 w-full"
+                                onClick={() => handleQuickAction(action)}
+                                data-testid={`chat-action-${action.toLowerCase().replace(/\s+/g, '-')}`}
+                              >
+                                {icon}
+                                {action}
+                              </Button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
