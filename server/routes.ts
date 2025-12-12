@@ -544,17 +544,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chatbot endpoint
   app.post("/api/chat", async (req, res) => {
     try {
-      const { message, sessionEmail, conversationHistory } = req.body;
+      const { message, sessionBookingId, sessionPhone, conversationHistory } = req.body;
       
       if (!message) {
         res.status(400).json({ error: "Message is required" });
         return;
       }
 
-      // Try to find booking if we have email/phone from session or extracted from conversation
+      // Try to find booking if we already have a verified session
       let booking = undefined;
-      if (sessionEmail) {
-        booking = await storage.getBookingByEmail(sessionEmail);
+      if (sessionBookingId) {
+        booking = await storage.getBooking(parseInt(sessionBookingId));
       }
 
       // Process the message with AI
@@ -563,47 +563,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conversationHistory: conversationHistory || [],
       });
 
-      // Handle different intents
+      // Handle verification flow
       let responseBooking = booking;
       let actions: string[] = [];
+      let needsNameVerification = false;
+      let multipleBookingsPhone = "";
 
-      // If AI extracted email/phone, try to look up booking
-      if (aiResponse.extractedEmail && !booking) {
-        responseBooking = await storage.getBookingByEmail(aiResponse.extractedEmail);
-        if (responseBooking) {
-          actions = ["View Details", "Reschedule", "Cancel Booking"];
-        }
-      } else if (aiResponse.extractedPhone && !booking) {
-        responseBooking = await storage.getBookingByPhone(aiResponse.extractedPhone);
-        if (responseBooking) {
-          actions = ["View Details", "Reschedule", "Cancel Booking"];
+      // Step 1: Check for booking ID
+      if (aiResponse.extractedBookingId && !booking) {
+        const bookingId = parseInt(aiResponse.extractedBookingId);
+        if (!isNaN(bookingId)) {
+          responseBooking = await storage.getBooking(bookingId);
         }
       }
 
-      // Handle reschedule intent if we have a booking and date/time
-      if (aiResponse.intent === "reschedule" && responseBooking && aiResponse.newDate && aiResponse.newTime) {
-        await storage.rescheduleBooking(responseBooking.id, aiResponse.newDate, aiResponse.newTime);
-        responseBooking = await storage.getBooking(responseBooking.id);
-      }
-
-      // Handle cancel intent
-      if (aiResponse.intent === "cancel" && responseBooking) {
-        // Only cancel if user confirmed (AI should handle confirmation flow)
-        if (message.toLowerCase().includes("yes") || message.toLowerCase().includes("confirm")) {
-          await storage.cancelBooking(responseBooking.id, "Cancelled via chat");
-          responseBooking = await storage.getBooking(responseBooking.id);
-        } else {
-          actions = ["Yes, Cancel My Booking", "No, Keep My Booking"];
+      // Step 2: Check for phone number if no booking found yet
+      if (aiResponse.extractedPhone && !responseBooking) {
+        const phoneBookings = await storage.getBookingsByPhone(aiResponse.extractedPhone);
+        
+        if (phoneBookings.length === 1) {
+          // Single booking found - verified!
+          responseBooking = phoneBookings[0];
+        } else if (phoneBookings.length > 1) {
+          // Multiple bookings - need name to disambiguate
+          needsNameVerification = true;
+          multipleBookingsPhone = aiResponse.extractedPhone;
+          
+          // Check if we also have a name to filter
+          if (aiResponse.extractedName) {
+            const nameMatches = await storage.getBookingsByPhoneAndName(
+              aiResponse.extractedPhone, 
+              aiResponse.extractedName
+            );
+            if (nameMatches.length === 1) {
+              responseBooking = nameMatches[0];
+              needsNameVerification = false;
+            } else if (nameMatches.length > 1) {
+              // Still multiple - use most recent
+              responseBooking = nameMatches[0];
+              needsNameVerification = false;
+            }
+          }
         }
       }
 
-      // Add actions based on current state
-      if (responseBooking && actions.length === 0) {
-        if (responseBooking.status !== "cancelled") {
+      // Step 3: Check for name verification with stored phone
+      if (aiResponse.extractedName && sessionPhone && !responseBooking) {
+        const nameMatches = await storage.getBookingsByPhoneAndName(sessionPhone, aiResponse.extractedName);
+        if (nameMatches.length >= 1) {
+          responseBooking = nameMatches[0];
+        }
+      }
+
+      // Determine actions based on booking state
+      if (responseBooking) {
+        const isPaid = responseBooking.status === "confirmed";
+        
+        if (responseBooking.status === "cancelled") {
+          actions = ["Contact Owner", "Book New Party"];
+        } else if (isPaid) {
           actions = ["Reschedule", "Cancel Booking", "Contact Owner"];
+        } else {
+          // Payment pending
+          actions = ["Complete Payment", "Cancel Booking", "Contact Owner"];
         }
-      } else if (!responseBooking && aiResponse.intent !== "general_info" && aiResponse.intent !== "greeting") {
-        actions = ["Find My Booking", "Package Information", "Contact Owner"];
+
+        // Handle reschedule intent if payment is confirmed
+        if (aiResponse.intent === "reschedule" && aiResponse.newDate && aiResponse.newTime) {
+          if (isPaid) {
+            await storage.rescheduleBooking(responseBooking.id, aiResponse.newDate, aiResponse.newTime);
+            responseBooking = await storage.getBooking(responseBooking.id);
+          }
+        }
+
+        // Handle cancel intent
+        if (aiResponse.intent === "cancel" && responseBooking) {
+          const bookingIdToCancel = responseBooking.id;
+          if (message.toLowerCase().includes("yes") || message.toLowerCase().includes("confirm")) {
+            await storage.cancelBooking(bookingIdToCancel, "Cancelled via chat");
+            responseBooking = await storage.getBooking(bookingIdToCancel);
+          } else {
+            actions = ["Yes, Cancel My Booking", "No, Keep My Booking"];
+          }
+        }
+      } else if (needsNameVerification) {
+        actions = ["I don't have my booking number"];
+      } else if (aiResponse.intent !== "general_info" && aiResponse.intent !== "greeting") {
+        actions = ["I have my booking number", "I don't have my booking number", "Contact Owner"];
       }
 
       res.json({
@@ -617,9 +663,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eventDate: responseBooking.eventDate,
           eventTime: responseBooking.eventTime,
           status: responseBooking.status,
+          isPaid: responseBooking.status === "confirmed",
         } : undefined,
         actions,
         sessionVerified: !!responseBooking,
+        needsNameVerification,
+        sessionPhone: multipleBookingsPhone || sessionPhone,
       });
     } catch (error) {
       console.error("Chat error:", error);

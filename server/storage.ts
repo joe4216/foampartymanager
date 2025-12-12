@@ -25,6 +25,8 @@ export interface IStorage {
   // Chat/booking lookup methods
   getBookingByEmail(email: string): Promise<Booking | undefined>;
   getBookingByPhone(phone: string): Promise<Booking | undefined>;
+  getBookingsByPhone(phone: string): Promise<Booking[]>;
+  getBookingsByPhoneAndName(phone: string, name: string): Promise<Booking[]>;
   rescheduleBooking(id: number, newDate: string, newTime: string): Promise<Booking | undefined>;
   cancelBooking(id: number, reason?: string): Promise<Booking | undefined>;
   
@@ -165,6 +167,31 @@ export class DatabaseStorage implements IStorage {
     return matches.sort((a, b) => 
       new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     )[0];
+  }
+
+  async getBookingsByPhone(phone: string): Promise<Booking[]> {
+    // Normalize phone number (remove non-digits)
+    const normalizedPhone = phone.replace(/\D/g, "");
+    const results = await db.select().from(bookings);
+    // Find all bookings with matching phone (normalized comparison)
+    return results.filter(b => 
+      b.phone?.replace(/\D/g, "") === normalizedPhone
+    ).sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  }
+
+  async getBookingsByPhoneAndName(phone: string, name: string): Promise<Booking[]> {
+    const normalizedPhone = phone.replace(/\D/g, "");
+    const normalizedName = name.toLowerCase().trim();
+    const results = await db.select().from(bookings);
+    // Find bookings matching phone AND name (case-insensitive)
+    return results.filter(b => 
+      b.phone?.replace(/\D/g, "") === normalizedPhone &&
+      b.customerName?.toLowerCase().includes(normalizedName)
+    ).sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
   }
 
   async rescheduleBooking(id: number, newDate: string, newTime: string): Promise<Booking | undefined> {

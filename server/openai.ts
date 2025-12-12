@@ -16,9 +16,10 @@ interface ChatContext {
 
 interface ChatResponse {
   message: string;
-  intent: "lookup_booking" | "view_details" | "reschedule" | "cancel" | "contact_owner" | "general_info" | "greeting" | "unknown";
-  extractedEmail?: string;
+  intent: "lookup_booking" | "verify_phone" | "verify_name" | "view_details" | "reschedule" | "cancel" | "contact_owner" | "general_info" | "greeting" | "unknown";
+  extractedBookingId?: string;
   extractedPhone?: string;
+  extractedName?: string;
   newDate?: string;
   newTime?: string;
   ownerMessage?: string;
@@ -39,37 +40,51 @@ BUSINESS INFO:
 - Contact: We're available via this chat or customers can leave a message for the owner
 
 ${context.booking ? `
-CUSTOMER'S BOOKING:
+CUSTOMER'S VERIFIED BOOKING:
 - Booking ID: ${context.booking.id}
 - Name: ${context.booking.customerName}
 - Package: ${context.booking.packageType}
 - Date: ${context.booking.eventDate}
 - Time: ${context.booking.eventTime}
 - Status: ${context.booking.status}
+- Payment: ${context.booking.status === 'confirmed' ? 'PAID' : 'PENDING PAYMENT'}
 - Email: ${context.booking.email}
-` : "No booking found for this customer yet."}
+
+Since their booking is verified, you can help them with: viewing details, rescheduling, canceling, or contacting the owner.
+${context.booking.status !== 'confirmed' ? 'IMPORTANT: Their payment is still pending. Let them know they need to complete payment.' : ''}
+` : "No booking verified yet for this customer."}
+
+VERIFICATION FLOW (follow this order):
+1. FIRST ask for their BOOKING NUMBER (the ID they received when booking)
+2. If they don't have the booking number, ask for their PHONE NUMBER
+3. If multiple bookings found with same phone, ask for their FIRST AND LAST NAME to identify the correct booking
+4. Once verified, show their booking status and payment status, then ask what they'd like to do
 
 YOUR CAPABILITIES:
-1. Help customers find their booking by email or phone number
-2. Show booking details once verified
-3. Help reschedule events (get new date/time)
+1. Verify customers using booking number, phone, or name
+2. Show booking details and payment status once verified
+3. Help reschedule events (get new date/time) - only if payment confirmed
 4. Help cancel bookings
 5. Take messages for the owner
 6. Answer general questions about foam parties and packages
 
 INSTRUCTIONS:
 - Be friendly and helpful
-- If someone wants to modify a booking but you don't have their booking info, ask for their email or phone number first
-- For rescheduling, ask for their preferred new date and time
-- For cancellations, confirm they want to cancel and explain any policies
+- Always verify the customer first before allowing booking changes
+- Extract booking ID if they provide a number like "my booking is 123" or "booking number 123"
+- Extract phone number if they provide one (10 digits, may have dashes/spaces)
+- Extract first and last name if needed for disambiguation
+- For rescheduling, ensure payment is confirmed first
+- For cancellations, confirm they want to cancel
 - Keep responses concise but warm
 
 Respond with JSON in this format:
 {
   "message": "Your friendly response to the customer",
-  "intent": "one of: lookup_booking, view_details, reschedule, cancel, contact_owner, general_info, greeting, unknown",
-  "extractedEmail": "email if customer provided one",
-  "extractedPhone": "phone if customer provided one",
+  "intent": "one of: lookup_booking, verify_phone, verify_name, view_details, reschedule, cancel, contact_owner, general_info, greeting, unknown",
+  "extractedBookingId": "booking ID number if customer provided one",
+  "extractedPhone": "phone number if customer provided one (digits only)",
+  "extractedName": "full name if customer provided first and last name",
   "newDate": "new date if customer is rescheduling (format: YYYY-MM-DD)",
   "newTime": "new time if customer is rescheduling",
   "ownerMessage": "message content if customer wants to contact owner"
