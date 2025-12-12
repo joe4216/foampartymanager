@@ -156,12 +156,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBookingByPhone(phone: string): Promise<Booking | undefined> {
-    // Normalize phone number (remove non-digits)
-    const normalizedPhone = phone.replace(/\D/g, "");
+    // Normalize phone number (remove non-digits, take last 10 digits)
+    const normalizedPhone = phone.replace(/\D/g, "").slice(-10);
     const results = await db.select().from(bookings);
-    // Find bookings with matching phone (normalized comparison)
+    // Find bookings with matching phone (compare last 10 digits to handle country codes)
     const matches = results.filter(b => 
-      b.phone?.replace(/\D/g, "") === normalizedPhone
+      b.phone?.replace(/\D/g, "").slice(-10) === normalizedPhone
     );
     if (matches.length === 0) return undefined;
     return matches.sort((a, b) => 
@@ -170,24 +170,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBookingsByPhone(phone: string): Promise<Booking[]> {
-    // Normalize phone number (remove non-digits)
-    const normalizedPhone = phone.replace(/\D/g, "");
+    // Normalize phone number (remove non-digits, take last 10 digits)
+    const normalizedPhone = phone.replace(/\D/g, "").slice(-10);
     const results = await db.select().from(bookings);
-    // Find all bookings with matching phone (normalized comparison)
+    // Find all bookings with matching phone (compare last 10 digits to handle country codes)
     return results.filter(b => 
-      b.phone?.replace(/\D/g, "") === normalizedPhone
+      b.phone?.replace(/\D/g, "").slice(-10) === normalizedPhone
     ).sort((a, b) => 
       new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
   }
 
   async getBookingsByPhoneAndName(phone: string, name: string): Promise<Booking[]> {
-    const normalizedPhone = phone.replace(/\D/g, "");
+    // Normalize phone number (remove non-digits, take last 10 digits)
+    const normalizedPhone = phone.replace(/\D/g, "").slice(-10);
     const normalizedName = name.toLowerCase().trim();
     const results = await db.select().from(bookings);
     // Find bookings matching phone AND name (case-insensitive)
     return results.filter(b => 
-      b.phone?.replace(/\D/g, "") === normalizedPhone &&
+      b.phone?.replace(/\D/g, "").slice(-10) === normalizedPhone &&
       b.customerName?.toLowerCase().includes(normalizedName)
     ).sort((a, b) => 
       new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
