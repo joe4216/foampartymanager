@@ -93,6 +93,7 @@ export function setupAuth(app: Express) {
       return res.status(400).send("Username already exists");
     }
 
+    // Create user but DON'T auto-login - require email verification first
     const user = await storage.createUser({
       username,
       password: await hashPassword(password),
@@ -102,9 +103,33 @@ export function setupAuth(app: Express) {
       email,
     });
 
-    req.login(user, (err) => {
-      if (err) return next(err);
-      res.status(201).json(sanitizeUser(user));
+    // Generate and send verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    const emailResult = await sendVerificationCode(email, code, firstName || undefined);
+    
+    if (!emailResult.success) {
+      console.error("Failed to send registration verification email:", emailResult.error);
+      // Still return success but note the email failed - user can resend
+      return res.status(201).json({ 
+        needsVerification: true,
+        userId: user.id,
+        email: email.split("@")[0].substring(0, 2) + "***@" + email.split("@")[1],
+        emailError: true,
+        message: "Account created but failed to send verification email. Please try resending."
+      });
+    }
+    
+    await storage.createVerificationCode(user.id, code, expiresAt);
+    
+    const maskedEmail = email.split("@")[0].substring(0, 2) + "***@" + email.split("@")[1];
+    
+    res.status(201).json({ 
+      needsVerification: true,
+      userId: user.id,
+      email: maskedEmail,
+      message: "Account created! Please check your email for a verification code."
     });
   });
 

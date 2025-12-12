@@ -13,13 +13,15 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 type LoginStep = "credentials" | "email-setup" | "verification";
+type RegisterStep = "form" | "verification";
 
 export default function AuthPage() {
-  const { user, registerMutation, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
   const [loginStep, setLoginStep] = useState<LoginStep>("credentials");
+  const [registerStep, setRegisterStep] = useState<RegisterStep>("form");
   const [loginData, setLoginData] = useState({ username: "", password: "" });
   const [verificationData, setVerificationData] = useState({ 
     userId: "", 
@@ -119,6 +121,34 @@ export default function AuthPage() {
     },
   });
 
+  const registerMutation = useMutation({
+    mutationFn: async (data: { username: string; password: string; firstName: string; lastName: string; phone: string; email: string }) => {
+      const res = await apiRequest("POST", "/api/register", data);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      if (data.needsVerification) {
+        setVerificationData({
+          userId: data.userId.toString(),
+          email: data.email,
+          newEmail: ""
+        });
+        setRegisterStep("verification");
+        toast({
+          title: "Account Created!",
+          description: `Please check your email for a verification code sent to ${data.email}`,
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Registration Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   if (isLoading) {
     return null;
   }
@@ -198,7 +228,7 @@ export default function AuthPage() {
       return;
     }
 
-    await registerMutation.mutateAsync({
+    registerMutation.mutate({
       username: registerData.username,
       password: registerData.password,
       firstName: registerData.firstName,
@@ -206,7 +236,26 @@ export default function AuthPage() {
       phone: registerData.phone,
       email: registerData.email
     });
-    setLocation("/owner/dashboard");
+  };
+
+  const handleResendRegisterCode = async () => {
+    // Use the login endpoint to resend - user already exists
+    const res = await apiRequest("POST", "/api/login/request-code", {
+      username: registerData.username,
+      password: registerData.password
+    });
+    const data = await res.json();
+    if (data.email) {
+      toast({
+        title: "Code Sent",
+        description: `A new verification code has been sent to ${data.email}`,
+      });
+    }
+  };
+
+  const handleBackToRegisterForm = () => {
+    setRegisterStep("form");
+    setVerificationCode("");
   };
 
   const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
@@ -423,153 +472,221 @@ export default function AuthPage() {
             </TabsContent>
 
             <TabsContent value="register">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Create Account</CardTitle>
-                  <CardDescription>
-                    Set up your owner account to start managing bookings
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleRegister} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+              {registerStep === "form" ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Create Account</CardTitle>
+                    <CardDescription>
+                      Set up your owner account to start managing bookings
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleRegister} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="register-firstname">First Name</Label>
+                          <Input
+                            id="register-firstname"
+                            type="text"
+                            placeholder="John"
+                            value={registerData.firstName}
+                            onChange={(e) => setRegisterData({ ...registerData, firstName: e.target.value })}
+                            required
+                            data-testid="input-register-firstname"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="register-lastname">Last Name</Label>
+                          <Input
+                            id="register-lastname"
+                            type="text"
+                            placeholder="Doe"
+                            value={registerData.lastName}
+                            onChange={(e) => setRegisterData({ ...registerData, lastName: e.target.value })}
+                            required
+                            data-testid="input-register-lastname"
+                          />
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
-                        <Label htmlFor="register-firstname">First Name</Label>
+                        <Label htmlFor="register-email">Email</Label>
                         <Input
-                          id="register-firstname"
-                          type="text"
-                          placeholder="John"
-                          value={registerData.firstName}
-                          onChange={(e) => setRegisterData({ ...registerData, firstName: e.target.value })}
+                          id="register-email"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={registerData.email}
+                          onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                           required
-                          data-testid="input-register-firstname"
+                          data-testid="input-register-email"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Used for verification codes when logging in
+                        </p>
                       </div>
+
                       <div className="space-y-2">
-                        <Label htmlFor="register-lastname">Last Name</Label>
+                        <Label htmlFor="register-username">Username</Label>
                         <Input
-                          id="register-lastname"
+                          id="register-username"
                           type="text"
-                          placeholder="Doe"
-                          value={registerData.lastName}
-                          onChange={(e) => setRegisterData({ ...registerData, lastName: e.target.value })}
+                          placeholder="Choose a username"
+                          value={registerData.username}
+                          onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
                           required
-                          data-testid="input-register-lastname"
+                          data-testid="input-register-username"
                         />
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="register-email">Email</Label>
-                      <Input
-                        id="register-email"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={registerData.email}
-                        onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                        required
-                        data-testid="input-register-email"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Used for verification codes when logging in
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="register-username">Username</Label>
-                      <Input
-                        id="register-username"
-                        type="text"
-                        placeholder="Choose a username"
-                        value={registerData.username}
-                        onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
-                        required
-                        data-testid="input-register-username"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="register-phone">Phone Number</Label>
-                      <Input
-                        id="register-phone"
-                        type="tel"
-                        placeholder="(555) 123-4567"
-                        value={registerData.phone}
-                        onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
-                        required
-                        data-testid="input-register-phone"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="register-password">Password</Label>
-                      <Input
-                        id="register-password"
-                        type="password"
-                        placeholder="Create a strong password"
-                        value={registerData.password}
-                        onChange={(e) => handlePasswordChange(e.target.value)}
-                        required
-                        data-testid="input-register-password"
-                      />
-                      <div className="mt-2 p-3 bg-muted rounded-md space-y-1">
-                        <p className="text-xs font-medium mb-2">Password must have:</p>
-                        <PasswordRequirement 
-                          met={registerData.password.length >= 8} 
-                          text="At least 8 characters" 
+                      <div className="space-y-2">
+                        <Label htmlFor="register-phone">Phone Number</Label>
+                        <Input
+                          id="register-phone"
+                          type="tel"
+                          placeholder="(555) 123-4567"
+                          value={registerData.phone}
+                          onChange={(e) => setRegisterData({ ...registerData, phone: e.target.value })}
+                          required
+                          data-testid="input-register-phone"
                         />
-                        <PasswordRequirement 
-                          met={/[a-zA-Z]/.test(registerData.password)} 
-                          text="At least one letter (a-z, A-Z)" 
-                        />
-                        <PasswordRequirement 
-                          met={/[0-9]/.test(registerData.password)} 
-                          text="At least one number (0-9)" 
-                        />
-                        <PasswordRequirement 
-                          met={/[!@#$%^&*(),.?":{}|<>]/.test(registerData.password)} 
-                          text="At least one symbol (!@#$%^&*)" 
-                        />
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Example: Foam2024!
-                        </p>
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="register-confirm-password">Confirm Password</Label>
-                      <Input
-                        id="register-confirm-password"
-                        type="password"
-                        placeholder="Re-enter your password"
-                        value={registerData.confirmPassword}
-                        onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
-                        required
-                        data-testid="input-register-confirm-password"
-                      />
-                      {registerData.confirmPassword && registerData.password !== registerData.confirmPassword && (
-                        <p className="text-sm text-destructive flex items-center gap-1">
-                          <X className="w-4 h-4" /> Passwords do not match
-                        </p>
-                      )}
-                      {registerData.confirmPassword && registerData.password === registerData.confirmPassword && (
-                        <p className="text-sm text-green-600 flex items-center gap-1">
-                          <Check className="w-4 h-4" /> Passwords match
-                        </p>
-                      )}
-                    </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="register-password">Password</Label>
+                        <Input
+                          id="register-password"
+                          type="password"
+                          placeholder="Create a strong password"
+                          value={registerData.password}
+                          onChange={(e) => handlePasswordChange(e.target.value)}
+                          required
+                          data-testid="input-register-password"
+                        />
+                        <div className="mt-2 p-3 bg-muted rounded-md space-y-1">
+                          <p className="text-xs font-medium mb-2">Password must have:</p>
+                          <PasswordRequirement 
+                            met={registerData.password.length >= 8} 
+                            text="At least 8 characters" 
+                          />
+                          <PasswordRequirement 
+                            met={/[a-zA-Z]/.test(registerData.password)} 
+                            text="At least one letter (a-z, A-Z)" 
+                          />
+                          <PasswordRequirement 
+                            met={/[0-9]/.test(registerData.password)} 
+                            text="At least one number (0-9)" 
+                          />
+                          <PasswordRequirement 
+                            met={/[!@#$%^&*(),.?":{}|<>]/.test(registerData.password)} 
+                            text="At least one symbol (!@#$%^&*)" 
+                          />
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Example: Foam2024!
+                          </p>
+                        </div>
+                      </div>
 
+                      <div className="space-y-2">
+                        <Label htmlFor="register-confirm-password">Confirm Password</Label>
+                        <Input
+                          id="register-confirm-password"
+                          type="password"
+                          placeholder="Re-enter your password"
+                          value={registerData.confirmPassword}
+                          onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                          required
+                          data-testid="input-register-confirm-password"
+                        />
+                        {registerData.confirmPassword && registerData.password !== registerData.confirmPassword && (
+                          <p className="text-sm text-destructive flex items-center gap-1">
+                            <X className="w-4 h-4" /> Passwords do not match
+                          </p>
+                        )}
+                        {registerData.confirmPassword && registerData.password === registerData.confirmPassword && (
+                          <p className="text-sm text-green-600 flex items-center gap-1">
+                            <Check className="w-4 h-4" /> Passwords match
+                          </p>
+                        )}
+                      </div>
+
+                      <Button 
+                        type="submit" 
+                        className="w-full" 
+                        disabled={registerMutation.isPending || !isPasswordValid(registerData.password) || registerData.password !== registerData.confirmPassword}
+                        data-testid="button-register"
+                      >
+                        {registerMutation.isPending ? "Creating Account..." : "Create Account"}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader>
                     <Button 
-                      type="submit" 
-                      className="w-full" 
-                      disabled={registerMutation.isPending || !isPasswordValid(registerData.password) || registerData.password !== registerData.confirmPassword}
-                      data-testid="button-register"
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-fit mb-2"
+                      onClick={handleBackToRegisterForm}
                     >
-                      {registerMutation.isPending ? "Creating Account..." : "Create Account"}
+                      <ArrowLeft className="w-4 h-4 mr-1" />
+                      Back
                     </Button>
-                  </form>
-                </CardContent>
-              </Card>
+                    <CardTitle className="flex items-center gap-2">
+                      <Mail className="w-5 h-5" />
+                      Verify Your Email
+                    </CardTitle>
+                    <CardDescription>
+                      We sent a 6-digit code to {verificationData.email}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div className="flex justify-center">
+                        <InputOTP
+                          maxLength={6}
+                          value={verificationCode}
+                          onChange={(value) => {
+                            setVerificationCode(value);
+                            handleVerifyCode(value);
+                          }}
+                          disabled={verifyCodeMutation.isPending}
+                          data-testid="input-register-verification-code"
+                        >
+                          <InputOTPGroup>
+                            <InputOTPSlot index={0} />
+                            <InputOTPSlot index={1} />
+                            <InputOTPSlot index={2} />
+                            <InputOTPSlot index={3} />
+                            <InputOTPSlot index={4} />
+                            <InputOTPSlot index={5} />
+                          </InputOTPGroup>
+                        </InputOTP>
+                      </div>
+                      
+                      {verifyCodeMutation.isPending && (
+                        <div className="flex justify-center">
+                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                        </div>
+                      )}
+
+                      <div className="text-center space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Didn't receive the code?
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleResendRegisterCode}
+                          data-testid="button-resend-register-code"
+                        >
+                          Resend Code
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         </div>
