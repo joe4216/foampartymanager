@@ -270,6 +270,84 @@ export function setupAuth(app: Express) {
     });
   });
 
+  // Forgot Password - Request reset code
+  app.post("/api/forgot-password/request", async (req, res) => {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+    
+    const user = await storage.getUserByEmail(email);
+    if (!user) {
+      // Don't reveal if email exists - just say code sent
+      return res.json({ 
+        success: true, 
+        message: "If an account exists with this email, a reset code has been sent."
+      });
+    }
+    
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    
+    const emailResult = await sendVerificationCode(email, code, user.firstName || undefined);
+    
+    if (!emailResult.success) {
+      console.error("Failed to send password reset email:", emailResult.error);
+      return res.status(500).json({ message: "Failed to send reset code. Please try again." });
+    }
+    
+    await storage.createVerificationCode(user.id, code, expiresAt);
+    
+    const emailParts = email.split("@");
+    const maskedEmail = emailParts[0].substring(0, 2) + "***@" + emailParts[1];
+    
+    res.json({ 
+      success: true, 
+      userId: user.id,
+      email: maskedEmail,
+      message: "Reset code sent to your email"
+    });
+  });
+
+  // Forgot Password - Reset with code
+  app.post("/api/forgot-password/reset", async (req, res) => {
+    const { userId, code, newPassword } = req.body;
+    
+    if (!userId || !code || !newPassword) {
+      return res.status(400).json({ message: "User ID, code, and new password are required" });
+    }
+    
+    // Validate password requirements
+    const passwordErrors = [];
+    if (newPassword.length < 8) passwordErrors.push("At least 8 characters required");
+    if (!/[a-zA-Z]/.test(newPassword)) passwordErrors.push("At least one letter required");
+    if (!/[0-9]/.test(newPassword)) passwordErrors.push("At least one number required");
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) passwordErrors.push("At least one symbol required");
+    
+    if (passwordErrors.length > 0) {
+      return res.status(400).json({ message: "Invalid password", errors: passwordErrors });
+    }
+    
+    const verificationCode = await storage.getValidVerificationCode(parseInt(userId), code);
+    if (!verificationCode) {
+      return res.status(400).json({ message: "Invalid or expired code" });
+    }
+    
+    // Hash new password and update user
+    const hashedPassword = await hashPassword(newPassword);
+    const user = await storage.getUser(parseInt(userId));
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Update password
+    await storage.updateUserPassword(parseInt(userId), hashedPassword);
+    await storage.markVerificationCodeUsed(verificationCode.id);
+    
+    res.json({ success: true, message: "Password reset successfully. You can now log in." });
+  });
+
   // Legacy login endpoint - disabled for security (now requires email verification)
   app.post("/api/login", async (req, res) => {
     res.status(400).json({ 

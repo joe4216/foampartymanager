@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type LoginStep = "credentials" | "email-setup" | "verification";
+type LoginStep = "credentials" | "email-setup" | "verification" | "forgot-password" | "reset-password";
 type RegisterStep = "form" | "verification";
 
 export default function AuthPage() {
@@ -52,6 +52,14 @@ export default function AuthPage() {
 
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const [showExistingAccountAlert, setShowExistingAccountAlert] = useState(false);
+  const [forgotPasswordData, setForgotPasswordData] = useState({ 
+    email: "", 
+    userId: "",
+    maskedEmail: "",
+    newPassword: "",
+    confirmNewPassword: ""
+  });
+  const [resetPasswordErrors, setResetPasswordErrors] = useState<string[]>([]);
 
   const requestCodeMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string }) => {
@@ -173,6 +181,64 @@ export default function AuthPage() {
     },
   });
 
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (data: { email: string }) => {
+      const res = await apiRequest("POST", "/api/forgot-password/request", data);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      if (data.userId) {
+        setForgotPasswordData(prev => ({
+          ...prev,
+          userId: data.userId.toString(),
+          maskedEmail: data.email
+        }));
+        setLoginStep("reset-password");
+        toast({
+          title: "Code Sent",
+          description: `A reset code has been sent to ${data.email}`,
+        });
+      } else {
+        toast({
+          title: "Check Your Email",
+          description: data.message,
+        });
+        setLoginStep("credentials");
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (data: { userId: string; code: string; newPassword: string }) => {
+      const res = await apiRequest("POST", "/api/forgot-password/reset", data);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Password Reset",
+        description: data.message,
+      });
+      setLoginStep("credentials");
+      setForgotPasswordData({ email: "", userId: "", maskedEmail: "", newPassword: "", confirmNewPassword: "" });
+      setVerificationCode("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Reset Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setVerificationCode("");
+    },
+  });
+
   if (isLoading) {
     return null;
   }
@@ -282,6 +348,34 @@ export default function AuthPage() {
     setVerificationCode("");
   };
 
+  const handleForgotPasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    forgotPasswordMutation.mutate({ email: forgotPasswordData.email });
+  };
+
+  const handleResetPasswordChange = (password: string) => {
+    setForgotPasswordData(prev => ({ ...prev, newPassword: password }));
+    setResetPasswordErrors(validatePassword(password));
+  };
+
+  const handleResetPasswordSubmit = (code: string) => {
+    if (code.length === 6 && isPasswordValid(forgotPasswordData.newPassword) && 
+        forgotPasswordData.newPassword === forgotPasswordData.confirmNewPassword) {
+      resetPasswordMutation.mutate({
+        userId: forgotPasswordData.userId,
+        code,
+        newPassword: forgotPasswordData.newPassword
+      });
+    }
+  };
+
+  const handleBackFromForgotPassword = () => {
+    setLoginStep("credentials");
+    setForgotPasswordData({ email: "", userId: "", maskedEmail: "", newPassword: "", confirmNewPassword: "" });
+    setVerificationCode("");
+    setResetPasswordErrors([]);
+  };
+
   const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
     <div className="flex items-center gap-2 text-sm">
       {met ? (
@@ -343,7 +437,200 @@ export default function AuthPage() {
                     </>
                   ) : "Continue"}
                 </Button>
+                <div className="text-center">
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-sm text-muted-foreground"
+                    onClick={() => setLoginStep("forgot-password")}
+                    data-testid="link-forgot-password"
+                  >
+                    Forgot Password?
+                  </Button>
+                </div>
               </form>
+            </CardContent>
+          </Card>
+        );
+
+      case "forgot-password":
+        return (
+          <Card>
+            <CardHeader>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-fit mb-2"
+                onClick={handleBackFromForgotPassword}
+                data-testid="button-back-from-forgot"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5" />
+                Reset Password
+              </CardTitle>
+              <CardDescription>
+                Enter your email address and we'll send you a code to reset your password.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-email">Email Address</Label>
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={forgotPasswordData.email}
+                    onChange={(e) => setForgotPasswordData(prev => ({ ...prev, email: e.target.value }))}
+                    required
+                    data-testid="input-forgot-email"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={forgotPasswordMutation.isPending}
+                  data-testid="button-send-reset-code"
+                >
+                  {forgotPasswordMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : "Send Reset Code"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        );
+
+      case "reset-password":
+        return (
+          <Card>
+            <CardHeader>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-fit mb-2"
+                onClick={handleBackFromForgotPassword}
+                data-testid="button-back-from-reset"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5" />
+                Create New Password
+              </CardTitle>
+              <CardDescription>
+                Enter the code sent to {forgotPasswordData.maskedEmail} and create your new password.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-new-password">New Password</Label>
+                  <Input
+                    id="reset-new-password"
+                    type="password"
+                    placeholder="Enter new password"
+                    value={forgotPasswordData.newPassword}
+                    onChange={(e) => handleResetPasswordChange(e.target.value)}
+                    required
+                    data-testid="input-reset-new-password"
+                  />
+                  {forgotPasswordData.newPassword && (
+                    <div className="space-y-1 pt-2">
+                      <PasswordRequirement 
+                        met={forgotPasswordData.newPassword.length >= 8} 
+                        text="At least 8 characters" 
+                      />
+                      <PasswordRequirement 
+                        met={/[a-zA-Z]/.test(forgotPasswordData.newPassword)} 
+                        text="At least one letter" 
+                      />
+                      <PasswordRequirement 
+                        met={/[0-9]/.test(forgotPasswordData.newPassword)} 
+                        text="At least one number" 
+                      />
+                      <PasswordRequirement 
+                        met={/[!@#$%^&*(),.?":{}|<>]/.test(forgotPasswordData.newPassword)} 
+                        text="At least one symbol (!@#$%^&*)" 
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="reset-confirm-password">Confirm New Password</Label>
+                  <Input
+                    id="reset-confirm-password"
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={forgotPasswordData.confirmNewPassword}
+                    onChange={(e) => setForgotPasswordData(prev => ({ ...prev, confirmNewPassword: e.target.value }))}
+                    required
+                    data-testid="input-reset-confirm-password"
+                  />
+                  {forgotPasswordData.confirmNewPassword && forgotPasswordData.newPassword !== forgotPasswordData.confirmNewPassword && (
+                    <p className="text-sm text-destructive">Passwords do not match</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Enter Verification Code</Label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={verificationCode}
+                      onChange={(value) => {
+                        setVerificationCode(value);
+                        handleResetPasswordSubmit(value);
+                      }}
+                      disabled={resetPasswordMutation.isPending || !isPasswordValid(forgotPasswordData.newPassword) || forgotPasswordData.newPassword !== forgotPasswordData.confirmNewPassword}
+                      data-testid="input-reset-code"
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  {(!isPasswordValid(forgotPasswordData.newPassword) || forgotPasswordData.newPassword !== forgotPasswordData.confirmNewPassword) && (
+                    <p className="text-sm text-muted-foreground text-center">
+                      Complete password fields to enter code
+                    </p>
+                  )}
+                </div>
+                
+                {resetPasswordMutation.isPending && (
+                  <div className="flex justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                )}
+
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Didn't receive the code?
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => forgotPasswordMutation.mutate({ email: forgotPasswordData.email })}
+                    disabled={forgotPasswordMutation.isPending}
+                    data-testid="button-resend-reset-code"
+                  >
+                    {forgotPasswordMutation.isPending ? "Sending..." : "Resend Code"}
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         );
