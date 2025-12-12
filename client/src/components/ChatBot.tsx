@@ -125,7 +125,17 @@ export default function ChatBot() {
       content: action,
       timestamp: new Date(),
     };
-    setMessages((prev) => [...prev, userMessage]);
+    // Remove actions from the previous message when user clicks one
+    setMessages((prev) => {
+      const updated = [...prev];
+      if (updated.length > 0) {
+        const lastMsg = updated[updated.length - 1];
+        if (lastMsg.actions) {
+          updated[updated.length - 1] = { ...lastMsg, actions: undefined };
+        }
+      }
+      return [...updated, userMessage];
+    });
     chatMutation.mutate(action);
   };
 
