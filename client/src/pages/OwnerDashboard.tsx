@@ -1,4 +1,5 @@
 import DashboardStats from "@/components/DashboardStats";
+import VenmoVerificationQueue from "@/components/VenmoVerificationQueue";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
@@ -59,6 +60,8 @@ export default function OwnerDashboard() {
         totalRevenue={totalRevenue}
         totalGuests={totalGuests}
       />
+
+      <VenmoVerificationQueue />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         <Card className="flex flex-col h-full">

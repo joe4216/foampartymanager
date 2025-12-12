@@ -182,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload Venmo receipt and analyze with AI
   app.post("/api/venmo/upload-receipt", async (req, res) => {
     try {
-      const { bookingId, imageBase64 } = req.body;
+      const { bookingId, imageBase64, email } = req.body;
       
       if (!bookingId || !imageBase64) {
         res.status(400).json({ error: "Missing booking ID or image" });
@@ -200,16 +200,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      // Validate booking is still pending verification
+      if (booking.paymentVerified) {
+        res.status(400).json({ error: "This booking has already been verified" });
+        return;
+      }
+
+      // Validate base64 image (check size and basic format)
+      const maxSizeBytes = 10 * 1024 * 1024; // 10MB max
+      const imageBuffer = Buffer.from(imageBase64, "base64");
+      
+      if (imageBuffer.length > maxSizeBytes) {
+        res.status(400).json({ error: "Image too large. Maximum size is 10MB." });
+        return;
+      }
+
+      // Basic image format validation (check for common image headers)
+      const jpegHeader = Buffer.from([0xFF, 0xD8, 0xFF]);
+      const pngHeader = Buffer.from([0x89, 0x50, 0x4E, 0x47]);
+      const isJpeg = imageBuffer.slice(0, 3).equals(jpegHeader);
+      const isPng = imageBuffer.slice(0, 4).equals(pngHeader);
+      
+      if (!isJpeg && !isPng) {
+        res.status(400).json({ error: "Invalid image format. Please upload a JPEG or PNG image." });
+        return;
+      }
+
       // Ensure uploads directory exists
       const uploadsDir = path.join(process.cwd(), "uploads", "receipts");
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
 
-      // Save the image
-      const fileName = `venmo-receipt-${bookingId}-${Date.now()}.jpg`;
+      // Save the image with sanitized filename
+      const extension = isJpeg ? "jpg" : "png";
+      const sanitizedBookingId = String(bookingId).replace(/[^0-9]/g, "");
+      const fileName = `venmo-receipt-${sanitizedBookingId}-${Date.now()}.${extension}`;
       const filePath = path.join(uploadsDir, fileName);
-      const imageBuffer = Buffer.from(imageBase64, "base64");
       fs.writeFileSync(filePath, imageBuffer);
 
       // Update booking with receipt URL
@@ -217,12 +244,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateVenmoReceipt(booking.id, receiptUrl);
 
       // Analyze the receipt with AI
-      const analysis = await analyzeVenmoReceipt(imageBase64);
-      
-      if (analysis.error) {
+      let analysis;
+      try {
+        analysis = await analyzeVenmoReceipt(imageBase64);
+      } catch (aiError) {
+        console.error("AI analysis error:", aiError);
         res.json({
           success: true,
           receiptUrl,
+          verified: false,
+          analysis: {
+            amount: null,
+            confidence: "low",
+            message: "Could not read receipt. Owner will verify manually.",
+            needsManualReview: true
+          }
+        });
+        return;
+      }
+      
+      if (analysis.error || analysis.amount === null) {
+        // Update booking with pending status for manual review
+        await storage.verifyVenmoPayment(
+          booking.id,
+          0,
+          false,
+          "AI could not detect amount - needs manual verification"
+        );
+        
+        res.json({
+          success: true,
+          receiptUrl,
+          verified: false,
           analysis: {
             amount: null,
             confidence: "low",
@@ -234,18 +287,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Convert AI-detected amount to cents
-      const receivedAmountCents = analysis.amount ? Math.round(analysis.amount * 100) : null;
+      const receivedAmountCents = Math.round(analysis.amount * 100);
       const expectedAmountCents = booking.expectedAmount || 0;
       
-      // Check if amounts match (within $0.01 tolerance)
-      const amountsMatch = receivedAmountCents !== null && 
-        Math.abs(receivedAmountCents - expectedAmountCents) < 2;
+      // Check if amounts match (within $1 tolerance for rounding)
+      const amountsMatch = Math.abs(receivedAmountCents - expectedAmountCents) <= 100;
 
+      // Only auto-verify if amounts match AND confidence is high
       if (amountsMatch && analysis.confidence === "high") {
-        // Auto-verify if amounts match and high confidence
         await storage.verifyVenmoPayment(
           booking.id, 
-          receivedAmountCents!, 
+          receivedAmountCents, 
           true, 
           "Auto-verified: Amount matches expected payment"
         );
@@ -263,13 +315,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         // Flag for manual review
-        const notes = receivedAmountCents === null 
-          ? "AI could not detect amount - needs manual verification"
-          : `Amount mismatch: Expected $${(expectedAmountCents / 100).toFixed(2)}, detected $${analysis.amount?.toFixed(2)}`;
+        const notes = amountsMatch 
+          ? `Low confidence detection - needs manual verification (detected $${analysis.amount.toFixed(2)})`
+          : `Amount mismatch: Expected $${(expectedAmountCents / 100).toFixed(2)}, detected $${analysis.amount.toFixed(2)}`;
         
         await storage.verifyVenmoPayment(
           booking.id,
-          receivedAmountCents || 0,
+          receivedAmountCents,
           false,
           notes
         );
