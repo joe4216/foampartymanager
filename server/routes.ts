@@ -21,6 +21,13 @@ const upload = multer({
   },
 });
 
+function generateConfirmationNumber(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const part1 = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  const part2 = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `FW-${part1}-${part2}`;
+}
+
 const PACKAGE_PRICES: Record<string, { name: string; amount: number }> = {
   "standard-30min": { name: "Standard Foam Party - 30 minutes", amount: 20000 },
   "standard-1hr": { name: "Standard Foam Party - 1 hour", amount: 32500 },
@@ -321,11 +328,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           true, 
           "Auto-verified: Valid Venmo receipt with matching amount"
         );
+
+        // Generate confirmation number and send email
+        const confirmationNumber = generateConfirmationNumber();
+        await storage.setBookingConfirmationNumber(booking.id, confirmationNumber);
+
+        const packageInfo = PACKAGE_PRICES[booking.packageType];
+        const packageName = packageInfo?.name || booking.packageType;
+
+        const { sendBookingConfirmationEmail } = await import("./email");
+        await sendBookingConfirmationEmail(booking.email, confirmationNumber, {
+          customerName: booking.customerName,
+          eventDate: booking.eventDate,
+          eventTime: booking.eventTime,
+          packageName,
+          address: booking.address,
+          partySize: booking.partySize,
+          amountPaid: receivedAmountCents,
+        });
         
         res.json({
           success: true,
           receiptUrl,
           verified: true,
+          confirmationNumber,
           message: "Payment verified! Your booking is now confirmed.",
           bookingId: booking.id,
         });
@@ -404,10 +430,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      res.json({ success: true, booking });
+      // If verified, generate confirmation number and send email
+      if (verified === true) {
+        const confirmationNumber = generateConfirmationNumber();
+        await storage.setBookingConfirmationNumber(booking.id, confirmationNumber);
+
+        const packageInfo = PACKAGE_PRICES[booking.packageType];
+        const packageName = packageInfo?.name || booking.packageType;
+
+        const { sendBookingConfirmationEmail } = await import("./email");
+        await sendBookingConfirmationEmail(booking.email, confirmationNumber, {
+          customerName: booking.customerName,
+          eventDate: booking.eventDate,
+          eventTime: booking.eventTime,
+          packageName,
+          address: booking.address,
+          partySize: booking.partySize,
+          amountPaid: amountCents,
+        });
+
+        res.json({ success: true, booking: { ...booking, confirmationNumber } });
+      } else {
+        res.json({ success: true, booking });
+      }
     } catch (error) {
       console.error("Manual verification error:", error);
       res.status(500).json({ error: "Failed to verify payment" });
+    }
+  });
+
+  // Booking email verification - send code
+  app.post("/api/booking/send-verification", async (req, res) => {
+    try {
+      const { bookingId } = req.body;
+      
+      if (!bookingId) {
+        res.status(400).json({ error: "Missing booking ID" });
+        return;
+      }
+
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        res.status(404).json({ error: "Booking not found" });
+        return;
+      }
+
+      if (booking.emailVerified) {
+        res.json({ success: true, alreadyVerified: true });
+        return;
+      }
+
+      // Generate 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      await storage.setBookingEmailVerification(booking.id, code, expiresAt);
+
+      // Send verification email
+      const { sendBookingVerificationEmail } = await import("./email");
+      const result = await sendBookingVerificationEmail(booking.email, code, booking.customerName);
+
+      if (!result.success) {
+        res.status(500).json({ error: "Failed to send verification email" });
+        return;
+      }
+
+      res.json({ success: true, email: booking.email });
+    } catch (error) {
+      console.error("Send verification error:", error);
+      res.status(500).json({ error: "Failed to send verification code" });
+    }
+  });
+
+  // Booking email verification - verify code
+  app.post("/api/booking/verify-email", async (req, res) => {
+    try {
+      const { bookingId, code } = req.body;
+      
+      if (!bookingId || !code) {
+        res.status(400).json({ error: "Missing booking ID or code" });
+        return;
+      }
+
+      const booking = await storage.getBooking(parseInt(bookingId));
+      if (!booking) {
+        res.status(404).json({ error: "Booking not found" });
+        return;
+      }
+
+      if (booking.emailVerified) {
+        res.json({ success: true, alreadyVerified: true });
+        return;
+      }
+
+      // Check if code matches and not expired
+      if (booking.emailVerificationCode !== code) {
+        res.status(400).json({ error: "Invalid verification code" });
+        return;
+      }
+
+      if (!booking.emailVerificationExpires || new Date(booking.emailVerificationExpires) < new Date()) {
+        res.status(400).json({ error: "Verification code has expired" });
+        return;
+      }
+
+      // Mark email as verified
+      await storage.verifyBookingEmail(booking.id);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Verify email error:", error);
+      res.status(500).json({ error: "Failed to verify email" });
     }
   });
 
@@ -429,7 +562,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionId,
           session.amount_total || 0
         );
-        res.json({ success: true, booking });
+
+        if (booking) {
+          // Generate confirmation number
+          const confirmationNumber = generateConfirmationNumber();
+          await storage.setBookingConfirmationNumber(booking.id, confirmationNumber);
+
+          // Get package name for email
+          const packageInfo = PACKAGE_PRICES[booking.packageType];
+          const packageName = packageInfo?.name || booking.packageType;
+
+          // Send confirmation email
+          const { sendBookingConfirmationEmail } = await import("./email");
+          await sendBookingConfirmationEmail(booking.email, confirmationNumber, {
+            customerName: booking.customerName,
+            eventDate: booking.eventDate,
+            eventTime: booking.eventTime,
+            packageName,
+            address: booking.address,
+            partySize: booking.partySize,
+            amountPaid: session.amount_total || 0,
+          });
+
+          res.json({ success: true, booking: { ...booking, confirmationNumber } });
+        } else {
+          res.json({ success: true, booking });
+        }
       } else {
         res.status(400).json({ error: "Payment not completed" });
       }

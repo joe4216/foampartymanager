@@ -45,6 +45,12 @@ export interface IStorage {
   markVerificationCodeUsed(id: number): Promise<void>;
   updateUserEmail(userId: number, email: string): Promise<User | undefined>;
   
+  // Booking email verification methods
+  setBookingEmailVerification(id: number, code: string, expiresAt: Date): Promise<Booking | undefined>;
+  verifyBookingEmail(id: number): Promise<Booking | undefined>;
+  getBookingByEmailVerificationCode(email: string, code: string): Promise<Booking | undefined>;
+  setBookingConfirmationNumber(id: number, confirmationNumber: string): Promise<Booking | undefined>;
+  
   sessionStore: session.Store;
 }
 
@@ -336,6 +342,56 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user || undefined;
+  }
+
+  async setBookingEmailVerification(id: number, code: string, expiresAt: Date): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ 
+        emailVerificationCode: code,
+        emailVerificationExpires: expiresAt,
+        emailVerified: false
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
+  }
+
+  async verifyBookingEmail(id: number): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ 
+        emailVerified: true,
+        emailVerificationCode: null,
+        emailVerificationExpires: null
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
+  }
+
+  async getBookingByEmailVerificationCode(email: string, code: string): Promise<Booking | undefined> {
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.email, email),
+          eq(bookings.emailVerificationCode, code),
+          eq(bookings.emailVerified, false),
+          gt(bookings.emailVerificationExpires, new Date())
+        )
+      );
+    return booking || undefined;
+  }
+
+  async setBookingConfirmationNumber(id: number, confirmationNumber: string): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ confirmationNumber })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
   }
 }
 

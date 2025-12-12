@@ -52,6 +52,12 @@ export const bookings = pgTable("bookings", {
   paymentVerified: boolean("payment_verified").default(false), // Whether payment has been verified
   verifiedAt: timestamp("verified_at"), // When payment was verified
   verificationNotes: text("verification_notes"), // Notes about verification (auto-verified, mismatch, etc.)
+  // Email verification for customers
+  emailVerified: boolean("email_verified").default(false),
+  emailVerificationCode: text("email_verification_code"),
+  emailVerificationExpires: timestamp("email_verification_expires"),
+  // Confirmation number (generated after successful payment)
+  confirmationNumber: text("confirmation_number"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -39,3 +39,125 @@ export async function sendVerificationCode(
     return { success: false, error: err.message || 'Failed to send email' };
   }
 }
+
+export async function sendBookingVerificationEmail(
+  email: string,
+  code: string,
+  customerName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const firstName = customerName.split(' ')[0];
+    const { data, error } = await resend.emails.send({
+      from: 'Foam Works Party Co <noreply@foamworkspartyco.com>',
+      to: email,
+      subject: 'Verify Your Email - Foam Party Booking',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Foam Works Party Co</h2>
+          <p>Hi ${firstName},</p>
+          <p>Thanks for starting your foam party booking! Please verify your email address by entering this code:</p>
+          <div style="background-color: #f4f4f4; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #333;">${code}</span>
+          </div>
+          <p>This code expires in 10 minutes.</p>
+          <p style="color: #666; font-size: 14px;">Once verified, you'll be able to proceed with payment to confirm your booking.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #999; font-size: 12px;">Foam Works Party Co - Foaming Around and Find Out</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Email send error:', err);
+    return { success: false, error: err.message || 'Failed to send email' };
+  }
+}
+
+interface BookingDetails {
+  customerName: string;
+  eventDate: string;
+  eventTime: string;
+  packageName: string;
+  address: string;
+  partySize: number;
+  amountPaid: number;
+}
+
+export async function sendBookingConfirmationEmail(
+  email: string,
+  confirmationNumber: string,
+  booking: BookingDetails
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const firstName = booking.customerName.split(' ')[0];
+    const formattedAmount = (booking.amountPaid / 100).toFixed(2);
+    
+    const { data, error } = await resend.emails.send({
+      from: 'Foam Works Party Co <noreply@foamworkspartyco.com>',
+      to: email,
+      subject: `Booking Confirmed! ${confirmationNumber} - Foam Works Party Co`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Foam Works Party Co</h2>
+          <h3 style="color: #22c55e;">Your Booking is Confirmed!</h3>
+          <p>Hi ${firstName},</p>
+          <p>Great news! Your foam party booking has been confirmed. Here are your details:</p>
+          
+          <div style="background-color: #f4f4f4; padding: 20px; margin: 20px 0; border-radius: 8px;">
+            <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Confirmation Number:</p>
+            <p style="margin: 0 0 20px 0; font-size: 24px; font-weight: bold; color: #333; letter-spacing: 2px;">${confirmationNumber}</p>
+            
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Package:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.packageName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Date:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.eventDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Time:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.eventTime}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Location:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.address}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Party Size:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.partySize} guests</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;">Amount Paid:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #22c55e;">$${formattedAmount}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">Please save your confirmation number for your records. We'll see you at your event!</p>
+          <p style="color: #666; font-size: 14px;">If you have any questions, feel free to reach out to us.</p>
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #999; font-size: 12px;">Foam Works Party Co - Foaming Around and Find Out</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Email send error:', err);
+    return { success: false, error: err.message || 'Failed to send email' };
+  }
+}
