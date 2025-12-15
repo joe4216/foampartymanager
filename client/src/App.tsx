@@ -11,6 +11,7 @@ import OwnerDashboard from "@/pages/OwnerDashboard";
 import CalendarView from "@/pages/CalendarView";
 import KanbanView from "@/pages/KanbanView";
 import PaymentsSettings from "@/pages/PaymentsSettings";
+import IntegrationsPage from "@/pages/IntegrationsPage";
 import AuthPage from "@/pages/AuthPage";
 import BookingSuccess from "@/pages/BookingSuccess";
 import BookingCancelled from "@/pages/BookingCancelled";
@@ -72,6 +73,14 @@ function Router() {
         component={() => (
           <OwnerLayout>
             <PaymentsSettings />
+          </OwnerLayout>
+        )}
+      />
+      <ProtectedRoute 
+        path="/owner/integrations" 
+        component={() => (
+          <OwnerLayout>
+            <IntegrationsPage />
           </OwnerLayout>
         )}
       />

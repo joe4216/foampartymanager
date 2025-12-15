@@ -10,7 +10,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Calendar, Kanban, LogOut, CreditCard } from "lucide-react";
+import { LayoutDashboard, Calendar, Kanban, LogOut, CreditCard, Blocks } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -28,6 +28,7 @@ export default function OwnerSidebar() {
     { title: "Calendar View", icon: Calendar, url: "/owner/calendar" },
     { title: "Kanban Board", icon: Kanban, url: "/owner/kanban" },
     { title: "Payments", icon: CreditCard, url: "/owner/payments" },
+    { title: "Integrations", icon: Blocks, url: "/owner/integrations" },
   ];
 
   return (
