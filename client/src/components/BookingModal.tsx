@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, AlertCircle, Clock, Sparkles, CreditCard, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { CalendarIcon, AlertCircle, Clock, Sparkles, CreditCard, ArrowLeft, CheckCircle2, Loader2, Info, Upload, Camera, MessageCircle } from "lucide-react";
 import { SiVenmo } from "react-icons/si";
 import { format } from "date-fns";
 import { useState, useEffect, useMemo } from "react";
@@ -64,6 +64,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "venmo">("card");
   const [bookingId, setBookingId] = useState<number | null>(null);
+  const [showVenmoInstructions, setShowVenmoInstructions] = useState(false);
   const [formData, setFormData] = useState({
     customerName: "",
     email: "",
@@ -754,6 +755,13 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
           Choose your payment method to complete your booking
         </p>
       </div>
+
+      <Alert className="border-green-500 bg-green-50 dark:bg-green-950/30">
+        <CheckCircle2 className="h-4 w-4 text-green-600" />
+        <AlertDescription className="text-green-800 dark:text-green-200">
+          <strong>Time slot reserved!</strong> Your slot for {date && format(date, "PPP")} at {formData.eventTime} is being held. Complete payment to confirm your booking.
+        </AlertDescription>
+      </Alert>
       
       <div className="space-y-3">
         <Label>Payment Method *</Label>
@@ -776,7 +784,10 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
           </button>
           <button
             type="button"
-            onClick={() => setPaymentMethod("venmo")}
+            onClick={() => {
+              setPaymentMethod("venmo");
+              setShowVenmoInstructions(true);
+            }}
             className={`p-4 rounded-lg border-2 transition-all flex items-center gap-3 ${
               paymentMethod === "venmo"
                 ? "border-primary bg-primary/5"
@@ -791,6 +802,18 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             </div>
           </button>
         </div>
+        
+        {paymentMethod === "venmo" && (
+          <button
+            type="button"
+            onClick={() => setShowVenmoInstructions(true)}
+            className="text-sm text-primary flex items-center gap-1 mt-2"
+            data-testid="button-venmo-instructions"
+          >
+            <Info className="w-3 h-3" />
+            View Venmo payment instructions
+          </button>
+        )}
       </div>
       
       <Alert>
@@ -841,21 +864,76 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   );
 
   return (
-    <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-['Poppins']">Book Your Foam Party</DialogTitle>
-          <DialogDescription>
-            {step === "details" && "Fill out your details below to get started."}
-            {step === "payment" && "Choose your payment method to complete your booking."}
-          </DialogDescription>
-        </DialogHeader>
-        
-        {renderStepIndicator()}
-        
-        {step === "details" && renderDetailsStep()}
-        {step === "payment" && renderPaymentStep()}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={handleDialogChange}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-['Poppins']">Book Your Foam Party</DialogTitle>
+            <DialogDescription>
+              {step === "details" && "Fill out your details below to get started."}
+              {step === "payment" && "Choose your payment method to complete your booking."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {renderStepIndicator()}
+          
+          {step === "details" && renderDetailsStep()}
+          {step === "payment" && renderPaymentStep()}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showVenmoInstructions} onOpenChange={setShowVenmoInstructions}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-['Poppins'] flex items-center gap-2">
+              <SiVenmo className="w-6 h-6 text-[#3D95CE]" />
+              Venmo Payment Instructions
+            </DialogTitle>
+            <DialogDescription>
+              Follow these steps to complete your payment
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm flex-shrink-0">1</div>
+              <div>
+                <p className="font-semibold">Send payment on Venmo</p>
+                <p className="text-sm text-muted-foreground">Open Venmo and send ${ALL_PACKAGES.find(p => p.value === formData.packageType)?.price?.replace(/[+$]/g, '') || '0'} to <strong>@{VENMO_USERNAME}</strong></p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm flex-shrink-0">2</div>
+              <div>
+                <p className="font-semibold">Take a screenshot</p>
+                <p className="text-sm text-muted-foreground">Screenshot the Venmo payment confirmation showing the completed transaction</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm flex-shrink-0">3</div>
+              <div>
+                <p className="font-semibold">Upload your receipt</p>
+                <p className="text-sm text-muted-foreground">Use our chatbot to upload your screenshot for instant verification</p>
+              </div>
+            </div>
+            
+            <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/30">
+              <MessageCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800 dark:text-blue-200">
+                <strong>Quick tip:</strong> After paying, click the chat bubble in the bottom-right corner and upload your receipt screenshot. Our AI will verify it instantly!
+              </AlertDescription>
+            </Alert>
+          </div>
+          
+          <div className="flex justify-end mt-4">
+            <Button onClick={() => setShowVenmoInstructions(false)} data-testid="button-close-venmo-instructions">
+              Got it!
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
