@@ -104,7 +104,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   const bookingsByDate = useMemo(() => {
     const map = new Map<string, Set<string>>();
     existingBookings
-      .filter(b => b.status === "confirmed" || b.status === "pending")
+      .filter(b => b.status === "confirmed")
       .forEach(b => {
         if (!map.has(b.eventDate)) {
           map.set(b.eventDate, new Set());
@@ -806,9 +806,9 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       <div className="flex gap-4 justify-center">
         <Button 
           variant="outline" 
-          onClick={() => setStep("verification")}
+          onClick={() => setStep("details")}
           disabled={isPending}
-          data-testid="button-back-to-verification"
+          data-testid="button-back-to-details"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
