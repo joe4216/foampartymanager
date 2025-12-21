@@ -345,7 +345,11 @@ export function setupAuth(app: Express) {
     await storage.updateUserPassword(parseInt(userId), hashedPassword);
     await storage.markVerificationCodeUsed(verificationCode.id);
     
-    res.json({ success: true, message: "Password reset successfully. You can now log in." });
+    res.json({ 
+      success: true, 
+      message: "Password reset successfully. You can now log in.",
+      username: user.username
+    });
   });
 
   // Legacy login endpoint - disabled for security (now requires email verification)

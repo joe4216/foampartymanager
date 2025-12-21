@@ -215,16 +215,15 @@ export default function AuthPage() {
     },
   });
 
+  const [resetSuccessUsername, setResetSuccessUsername] = useState<string | null>(null);
+
   const resetPasswordMutation = useMutation({
     mutationFn: async (data: { userId: string; code: string; newPassword: string }) => {
       const res = await apiRequest("POST", "/api/forgot-password/reset", data);
       return await res.json();
     },
     onSuccess: (data) => {
-      toast({
-        title: "Password Reset",
-        description: data.message,
-      });
+      setResetSuccessUsername(data.username);
       setLoginStep("credentials");
       setForgotPasswordData({ email: "", userId: "", maskedEmail: "", newPassword: "", confirmNewPassword: "" });
       setVerificationCode("");
@@ -781,6 +780,33 @@ export default function AuthPage() {
             <AlertDialogCancel data-testid="button-cancel-existing">Try Different Email</AlertDialogCancel>
             <AlertDialogAction onClick={handleSwitchToLogin} data-testid="button-go-to-login">
               Sign In
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!resetSuccessUsername} onOpenChange={() => setResetSuccessUsername(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Check className="w-5 h-5 text-green-600" />
+              Password Reset Successful
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>Your password has been reset successfully!</p>
+              <div className="bg-muted p-4 rounded-lg text-center">
+                <p className="text-sm text-muted-foreground mb-1">Your username is:</p>
+                <p className="text-lg font-semibold text-foreground">{resetSuccessUsername}</p>
+              </div>
+              <p className="text-sm">Use this username with your new password to log in.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction 
+              onClick={() => setResetSuccessUsername(null)} 
+              data-testid="button-reset-success-ok"
+            >
+              Got it, Log In
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
