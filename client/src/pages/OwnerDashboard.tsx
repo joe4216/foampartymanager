@@ -1,5 +1,6 @@
 import DashboardStats from "@/components/DashboardStats";
 import VenmoVerificationQueue from "@/components/VenmoVerificationQueue";
+import AllBookingsTable from "@/components/AllBookingsTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
@@ -49,9 +50,12 @@ export default function OwnerDashboard() {
 
   return (
     <div className="p-8 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold font-['Poppins'] mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of your foam party business</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold font-['Poppins'] mb-2">Dashboard</h1>
+          <p className="text-muted-foreground">Overview of your foam party business</p>
+        </div>
+        <AllBookingsTable bookings={bookings} />
       </div>
 
       <DashboardStats
