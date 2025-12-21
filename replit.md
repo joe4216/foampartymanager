@@ -98,11 +98,20 @@ Preferred communication style: Simple, everyday language.
 **Database Schema**
 - `users` table with fields: id, username, password, firstName, lastName, phone, email
 - `verification_codes` table with fields: id, user_id, code, expires_at, created_at, used
-- `bookings` table with fields: id, customerName, email, phone, address, partySize, packageType, eventDate, eventTime, status, notes, createdAt, paymentMethod, expectedAmount, receivedAmount, receiptImageUrl, paymentVerified, verifiedAt, verificationNotes
+- `bookings` table with fields: id, customerName, email, phone, address, partySize, packageType, eventDate, eventTime, status, notes, createdAt, paymentMethod, expectedAmount, receivedAmount, receiptImageUrl, paymentVerified, verifiedAt, verificationNotes, pendingExpiresAt, reminder1SentAt, reminder2SentAt, cancelNote
 - Status enum: pending, confirmed, completed, cancelled
 - Payment methods: stripe, venmo
 - Serial primary key with auto-incrementing IDs
 - Timestamp fields with automatic `defaultNow()` for creation tracking
+
+**Abandoned Booking Recovery System**
+- 3-day grace period for pending bookings before auto-cancellation
+- Background scheduler runs hourly (server/scheduler.ts)
+- Reminder 1: Email sent after 24 hours of pending status
+- Reminder 2: Email sent after 48 hours of pending status
+- Auto-cancellation: Booking cancelled after 72 hours with note "Booking was not completed"
+- Returning customer detection: Lookup by email or phone, pre-fills form with pending booking data
+- Time slots only blocked after payment completion, not during pending status
 
 **Email Verification for Owner Login**
 - Two-step authentication: password verification followed by email code
