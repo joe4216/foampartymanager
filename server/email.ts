@@ -85,33 +85,25 @@ interface PendingBookingReminderDetails {
   eventTime: string;
   packageName: string;
   bookingId: number;
-  daysRemaining: number;
 }
 
 export async function sendPendingBookingReminder(
   email: string,
-  booking: PendingBookingReminderDetails,
-  reminderNumber: 1 | 2
+  booking: PendingBookingReminderDetails
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const firstName = booking.customerName.split(' ')[0];
-    const urgencyText = reminderNumber === 1 
-      ? "Just a friendly reminder" 
-      : "Final reminder";
-    const expiryText = booking.daysRemaining === 1 
-      ? "expires tomorrow" 
-      : `expires in ${booking.daysRemaining} days`;
     
     const { data, error } = await resend.emails.send({
       from: 'Foam Works Party Co <noreply@foamworkspartyco.com>',
       to: email,
-      subject: `${urgencyText}: Complete Your Foam Party Booking!`,
+      subject: 'Complete Your Foam Party Booking - Expires Tomorrow!',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #333;">Foam Works Party Co</h2>
           <p>Hi ${firstName},</p>
           
-          <p><strong>${urgencyText}!</strong> You started a foam party booking but haven't completed payment yet. Your reservation ${expiryText}.</p>
+          <p>You started a foam party booking but haven't completed payment yet. <strong>Your booking will be cancelled tomorrow if payment isn't completed.</strong></p>
           
           <div style="background-color: #f4f4f4; padding: 20px; margin: 20px 0; border-radius: 8px;">
             <h3 style="margin: 0 0 15px 0; color: #333;">Your Booking Details:</h3>
@@ -131,13 +123,11 @@ export async function sendPendingBookingReminder(
             </table>
           </div>
           
-          <p style="color: #666;">To complete your booking, simply visit our website and enter your email address - we'll automatically pull up your saved information!</p>
-          
-          ${reminderNumber === 2 ? `
           <div style="background-color: #fef3c7; padding: 15px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #f59e0b;">
-            <p style="margin: 0; color: #92400e;"><strong>Don't miss out!</strong> Your reservation will be cancelled tomorrow if payment isn't completed.</p>
+            <p style="margin: 0; color: #92400e;"><strong>Don't miss out!</strong> Complete your payment now to secure your date. If someone else books this time slot before you complete payment, you'll need to choose a different time.</p>
           </div>
-          ` : ''}
+          
+          <p style="color: #666;">To complete your booking, simply visit our website and enter your email address - we'll automatically pull up your saved information!</p>
           
           <div style="text-align: center; margin: 30px 0;">
             <a href="https://foamworkspartyco.com" style="display: inline-block; background-color: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">Complete My Booking</a>

@@ -22,10 +22,12 @@ async function processReminders() {
   console.log("[Scheduler] Processing pending booking reminders...");
   
   try {
-    const bookingsForReminder1 = await storage.getPendingBookingsNeedingReminder1();
-    console.log(`[Scheduler] Found ${bookingsForReminder1.length} bookings needing reminder 1`);
+    // Get bookings that are 48+ hours old and haven't received a reminder yet
+    // This gives customers 24 hours warning before the 72-hour auto-cancellation
+    const bookingsNeedingReminder = await storage.getPendingBookingsNeedingReminder();
+    console.log(`[Scheduler] Found ${bookingsNeedingReminder.length} bookings needing reminder`);
     
-    for (const booking of bookingsForReminder1) {
+    for (const booking of bookingsNeedingReminder) {
       if (!booking.email) continue;
       
       const result = await sendPendingBookingReminder(
@@ -36,43 +38,14 @@ async function processReminders() {
           eventTime: booking.eventTime,
           packageName: formatPackageName(booking.packageType),
           bookingId: booking.id,
-          daysRemaining: 2,
-        },
-        1
+        }
       );
       
       if (result.success) {
-        await storage.markReminder1Sent(booking.id);
-        console.log(`[Scheduler] Sent reminder 1 to booking ${booking.id}`);
+        await storage.markReminderSent(booking.id);
+        console.log(`[Scheduler] Sent reminder to booking ${booking.id}`);
       } else {
-        console.error(`[Scheduler] Failed to send reminder 1 to booking ${booking.id}:`, result.error);
-      }
-    }
-
-    const bookingsForReminder2 = await storage.getPendingBookingsNeedingReminder2();
-    console.log(`[Scheduler] Found ${bookingsForReminder2.length} bookings needing reminder 2`);
-    
-    for (const booking of bookingsForReminder2) {
-      if (!booking.email) continue;
-      
-      const result = await sendPendingBookingReminder(
-        booking.email,
-        {
-          customerName: booking.customerName,
-          eventDate: booking.eventDate,
-          eventTime: booking.eventTime,
-          packageName: formatPackageName(booking.packageType),
-          bookingId: booking.id,
-          daysRemaining: 1,
-        },
-        2
-      );
-      
-      if (result.success) {
-        await storage.markReminder2Sent(booking.id);
-        console.log(`[Scheduler] Sent reminder 2 to booking ${booking.id}`);
-      } else {
-        console.error(`[Scheduler] Failed to send reminder 2 to booking ${booking.id}:`, result.error);
+        console.error(`[Scheduler] Failed to send reminder to booking ${booking.id}:`, result.error);
       }
     }
   } catch (error) {

@@ -54,11 +54,9 @@ export interface IStorage {
   
   // Abandoned booking recovery methods
   setPendingExpiry(id: number, expiresAt: Date): Promise<Booking | undefined>;
-  getPendingBookingsNeedingReminder1(): Promise<Booking[]>;
-  getPendingBookingsNeedingReminder2(): Promise<Booking[]>;
+  getPendingBookingsNeedingReminder(): Promise<Booking[]>;
   getExpiredPendingBookings(): Promise<Booking[]>;
-  markReminder1Sent(id: number): Promise<Booking | undefined>;
-  markReminder2Sent(id: number): Promise<Booking | undefined>;
+  markReminderSent(id: number): Promise<Booking | undefined>;
   autoCancelBooking(id: number, note: string): Promise<Booking | undefined>;
   findPendingBookingByEmailOrPhone(email: string, phone: string): Promise<Booking | undefined>;
   
@@ -428,37 +426,20 @@ export class DatabaseStorage implements IStorage {
     return booking || undefined;
   }
 
-  async getPendingBookingsNeedingReminder1(): Promise<Booking[]> {
-    const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    
-    const results = await db.select().from(bookings).where(
-      and(
-        eq(bookings.status, "pending"),
-        isNull(bookings.reminder1SentAt)
-      )
-    );
-    
-    return results.filter(b => {
-      if (!b.createdAt) return false;
-      const createdAt = new Date(b.createdAt);
-      return createdAt <= oneDayAgo;
-    });
-  }
-
-  async getPendingBookingsNeedingReminder2(): Promise<Booking[]> {
+  async getPendingBookingsNeedingReminder(): Promise<Booking[]> {
     const now = new Date();
     const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
     
     const results = await db.select().from(bookings).where(
       and(
         eq(bookings.status, "pending"),
-        isNull(bookings.reminder2SentAt)
+        isNull(bookings.reminderSentAt)
       )
     );
     
+    // Return bookings that are at least 48 hours old (1 day before 72-hour expiry)
     return results.filter(b => {
-      if (!b.createdAt || !b.reminder1SentAt) return false;
+      if (!b.createdAt) return false;
       const createdAt = new Date(b.createdAt);
       return createdAt <= twoDaysAgo;
     });
@@ -481,19 +462,10 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async markReminder1Sent(id: number): Promise<Booking | undefined> {
+  async markReminderSent(id: number): Promise<Booking | undefined> {
     const [booking] = await db
       .update(bookings)
-      .set({ reminder1SentAt: new Date() })
-      .where(eq(bookings.id, id))
-      .returning();
-    return booking || undefined;
-  }
-
-  async markReminder2Sent(id: number): Promise<Booking | undefined> {
-    const [booking] = await db
-      .update(bookings)
-      .set({ reminder2SentAt: new Date() })
+      .set({ reminderSentAt: new Date() })
       .where(eq(bookings.id, id))
       .returning();
     return booking || undefined;

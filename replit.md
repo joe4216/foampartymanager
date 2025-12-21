@@ -107,11 +107,10 @@ Preferred communication style: Simple, everyday language.
 **Abandoned Booking Recovery System**
 - 3-day grace period for pending bookings before auto-cancellation
 - Background scheduler runs hourly (server/scheduler.ts)
-- Reminder 1: Email sent after 24 hours of pending status
-- Reminder 2: Email sent after 48 hours of pending status
+- Single reminder email sent at 48 hours (1 day before cancellation) warning customer to complete booking
 - Auto-cancellation: Booking cancelled after 72 hours with note "Booking was not completed"
 - Returning customer detection: Lookup by email or phone, pre-fills form with pending booking data
-- Time slots only blocked after payment completion, not during pending status
+- Time slots NOT blocked during pending status - only confirmed (paid) bookings block slots
 
 **Email Verification for Owner Login**
 - Two-step authentication: password verification followed by email code
