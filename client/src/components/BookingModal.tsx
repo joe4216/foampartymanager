@@ -55,6 +55,33 @@ const findPackageValueByLabel = (label: string): string => {
 };
 
 const VENMO_USERNAME = "joe4216";
+const MAX_PARTY_SIZE = 500;
+const MIN_ADVANCE_HOURS = 48;
+
+// Phone number formatting helper
+const formatPhoneNumber = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 10);
+  if (digits.length === 0) return '';
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
+
+// Get minimum bookable date (48 hours from now)
+// We add 48 hours, then if not already at start of day, move to the NEXT day
+const getMinBookableDate = (): Date => {
+  const now = new Date();
+  const minDateTime = new Date(now.getTime() + MIN_ADVANCE_HOURS * 60 * 60 * 1000);
+  // Set to start of the day that is at least 48 hours away
+  // If 48 hours from now is 8 PM on Dec 23, the earliest bookable day is Dec 24
+  const minDate = new Date(minDateTime);
+  minDate.setHours(0, 0, 0, 0);
+  // If we rolled back in time, add a day
+  if (minDate.getTime() < minDateTime.getTime()) {
+    minDate.setDate(minDate.getDate() + 1);
+  }
+  return minDate;
+};
 
 type BookingStep = "details" | "payment";
 
@@ -68,6 +95,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   const [formData, setFormData] = useState({
     customerName: "",
     email: "",
+    confirmEmail: "",
     phone: "",
     streetAddress: "",
     city: "",
@@ -234,10 +262,72 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Email confirmation check
+    if (formData.email.trim().toLowerCase() !== formData.confirmEmail.trim().toLowerCase()) {
+      toast({
+        title: "Email Mismatch",
+        description: "The email addresses you entered don't match. Please check and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Phone validation
+    const phoneDigitsCheck = formData.phone.replace(/\D/g, '');
+    if (phoneDigitsCheck.length !== 10) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please enter a valid 10-digit phone number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Zip code validation
+    if (!/^\d{5}$/.test(formData.zipCode.trim())) {
+      toast({
+        title: "Invalid Zip Code",
+        description: "Please enter a valid 5-digit zip code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Party size validation
+    const partySizeNum = parseInt(formData.partySize);
+    if (isNaN(partySizeNum) || partySizeNum < 1) {
+      toast({
+        title: "Invalid Party Size",
+        description: "Please enter a valid party size (at least 1 guest).",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (partySizeNum > MAX_PARTY_SIZE) {
+      toast({
+        title: "Party Size Too Large",
+        description: `Maximum party size is ${MAX_PARTY_SIZE} guests. Please contact us for larger events.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!date) {
       toast({
         title: "Date Required",
         description: "Please select an event date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check minimum advance booking
+    const minDate = getMinBookableDate();
+    if (date < minDate) {
+      toast({
+        title: "Date Too Soon",
+        description: `Bookings require at least ${MIN_ADVANCE_HOURS} hours advance notice. Please select a later date.`,
         variant: "destructive",
       });
       return;
@@ -287,6 +377,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     setFormData({
       customerName: "",
       email: "",
+      confirmEmail: "",
       phone: "",
       streetAddress: "",
       city: "",
@@ -316,15 +407,28 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     return bookingsByDate.get(dateString)?.size || 0;
   };
 
+  // Validation helpers
+  const phoneDigits = formData.phone.replace(/\D/g, '');
+  const isPhoneValid = phoneDigits.length === 10;
+  const isZipValid = /^\d{5}$/.test(formData.zipCode.trim());
+  const isEmailMatch = formData.email.trim().toLowerCase() === formData.confirmEmail.trim().toLowerCase();
+  const partySize = parseInt(formData.partySize) || 0;
+  const isPartySizeValid = partySize >= 1 && partySize <= MAX_PARTY_SIZE;
+
   const isFormComplete = 
     formData.customerName.trim() !== "" &&
     formData.email.trim() !== "" &&
+    formData.confirmEmail.trim() !== "" &&
+    isEmailMatch &&
     formData.phone.trim() !== "" &&
+    isPhoneValid &&
     formData.partySize.trim() !== "" &&
+    isPartySizeValid &&
     formData.streetAddress.trim() !== "" &&
     formData.city.trim() !== "" &&
     formData.state.trim() !== "" &&
     formData.zipCode.trim() !== "" &&
+    isZipValid &&
     formData.packageType !== "" &&
     formData.eventTime !== "" &&
     date !== undefined;
@@ -377,6 +481,23 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
         </div>
         
         <div className="space-y-2">
+          <Label htmlFor="phone">Phone Number *</Label>
+          <Input
+            id="phone"
+            type="tel"
+            value={formData.phone}
+            onChange={(e) => updateField('phone', formatPhoneNumber(e.target.value))}
+            placeholder="(555) 123-4567"
+            required
+            data-testid="input-phone"
+            className={formData.phone && !isPhoneValid ? "border-red-500" : ""}
+          />
+          {formData.phone && !isPhoneValid && (
+            <p className="text-xs text-red-500">Please enter a valid 10-digit phone number</p>
+          )}
+        </div>
+        
+        <div className="space-y-2">
           <Label htmlFor="email">Email *</Label>
           <Input
             id="email"
@@ -390,20 +511,24 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone Number *</Label>
+          <Label htmlFor="confirm-email">Confirm Email *</Label>
           <Input
-            id="phone"
-            type="tel"
-            value={formData.phone}
-            onChange={(e) => updateField('phone', e.target.value)}
-            placeholder="(555) 123-4567"
+            id="confirm-email"
+            type="email"
+            value={formData.confirmEmail}
+            onChange={(e) => updateField('confirmEmail', e.target.value)}
+            placeholder="john@example.com"
             required
-            data-testid="input-phone"
+            data-testid="input-confirm-email"
+            className={formData.confirmEmail && !isEmailMatch ? "border-red-500" : ""}
           />
+          {formData.confirmEmail && !isEmailMatch && (
+            <p className="text-xs text-red-500">Email addresses must match</p>
+          )}
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="party-size">Party Size *</Label>
+          <Label htmlFor="party-size">Party Size * <span className="text-muted-foreground text-xs">(max {MAX_PARTY_SIZE})</span></Label>
           <Input
             id="party-size"
             type="number"
@@ -411,9 +536,18 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             onChange={(e) => updateField('partySize', e.target.value)}
             placeholder="50"
             min="1"
+            max={MAX_PARTY_SIZE}
             required
             data-testid="input-party-size"
+            className={formData.partySize && !isPartySizeValid ? "border-red-500" : ""}
           />
+          {formData.partySize && !isPartySizeValid && (
+            <p className="text-xs text-red-500">
+              {parseInt(formData.partySize) > MAX_PARTY_SIZE 
+                ? `Maximum ${MAX_PARTY_SIZE} guests` 
+                : "Please enter at least 1 guest"}
+            </p>
+          )}
         </div>
       </div>
       
@@ -511,11 +645,19 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             <Input
               id="zip-code"
               value={formData.zipCode}
-              onChange={(e) => updateField('zipCode', e.target.value)}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 5);
+                updateField('zipCode', digits);
+              }}
               placeholder="12345"
               required
               data-testid="input-zip-code"
+              className={formData.zipCode && !isZipValid ? "border-red-500" : ""}
+              maxLength={5}
             />
+            {formData.zipCode && !isZipValid && (
+              <p className="text-xs text-red-500">Please enter a valid 5-digit zip code</p>
+            )}
           </div>
         </div>
       </div>
@@ -629,15 +771,16 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                   day_hidden: "invisible",
                 }}
                 disabled={(checkDate) => {
-                  const isPast = checkDate < new Date(new Date().setHours(0, 0, 0, 0));
+                  const minDate = getMinBookableDate();
+                  const isTooSoon = checkDate < minDate;
                   const dateString = format(checkDate, "yyyy-MM-dd");
                   const isFullyBooked = fullyBookedDates.has(dateString);
-                  return isPast || isFullyBooked;
+                  return isTooSoon || isFullyBooked;
                 }}
                 modifiers={{
                   partiallyBooked: (checkDate) => {
-                    const isPast = checkDate < new Date(new Date().setHours(0, 0, 0, 0));
-                    if (isPast) return false;
+                    const minDate = getMinBookableDate();
+                    if (checkDate < minDate) return false;
                     const bookedCount = getBookedSlotsCount(checkDate);
                     return bookedCount > 0 && bookedCount < ALL_TIME_SLOTS.length;
                   }
