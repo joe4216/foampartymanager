@@ -59,6 +59,11 @@ export const bookings = pgTable("bookings", {
   // Confirmation number (generated after successful payment)
   confirmationNumber: text("confirmation_number"),
   createdAt: timestamp("created_at").defaultNow(),
+  // Abandoned booking recovery fields
+  pendingExpiresAt: timestamp("pending_expires_at"), // When pending booking expires (3 days after creation)
+  reminder1SentAt: timestamp("reminder1_sent_at"), // When first reminder email was sent
+  reminder2SentAt: timestamp("reminder2_sent_at"), // When second reminder email was sent
+  cancelNote: text("cancel_note"), // Note explaining cancellation reason
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

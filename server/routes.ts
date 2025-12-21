@@ -89,6 +89,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Lookup pending booking by email or phone for returning customers
+  app.post("/api/bookings/lookup-pending", async (req, res) => {
+    try {
+      const { email, phone } = req.body;
+      
+      if (!email && !phone) {
+        res.status(400).json({ error: "Email or phone required" });
+        return;
+      }
+      
+      const pendingBooking = await storage.findPendingBookingByEmailOrPhone(
+        email || "", 
+        phone || ""
+      );
+      
+      if (!pendingBooking) {
+        res.json({ found: false, booking: null });
+        return;
+      }
+      
+      // Return booking data for pre-filling the form
+      res.json({
+        found: true,
+        booking: {
+          id: pendingBooking.id,
+          customerName: pendingBooking.customerName,
+          email: pendingBooking.email,
+          phone: pendingBooking.phone,
+          address: pendingBooking.address,
+          partySize: pendingBooking.partySize,
+          packageType: pendingBooking.packageType,
+          eventDate: pendingBooking.eventDate,
+          eventTime: pendingBooking.eventTime,
+          notes: pendingBooking.notes,
+          createdAt: pendingBooking.createdAt,
+        }
+      });
+    } catch (error) {
+      console.error("Error looking up pending booking:", error);
+      res.status(500).json({ error: "Failed to lookup booking" });
+    }
+  });
+
   app.get("/api/stripe/publishable-key", async (req, res) => {
     try {
       const publishableKey = await getStripePublishableKey();
@@ -109,6 +152,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const booking = await storage.createBooking(validatedData);
+      
+      // Set 3-day expiry for pending bookings
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 3);
+      await storage.setPendingExpiry(booking.id, expiresAt);
 
       const stripe = await getUncachableStripeClient();
       const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -308,6 +356,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Use the new Venmo-specific storage method
       const booking = await storage.createVenmoBooking(bookingWithNote, packageInfo.amount);
+      
+      // Set 3-day expiry for pending bookings
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 3);
+      await storage.setPendingExpiry(booking.id, expiresAt);
       
       // Return booking info with amount in dollars for Venmo redirect
       const amountInDollars = packageInfo.amount / 100;

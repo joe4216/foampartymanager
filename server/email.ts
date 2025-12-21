@@ -79,6 +79,140 @@ export async function sendBookingVerificationEmail(
   }
 }
 
+interface PendingBookingReminderDetails {
+  customerName: string;
+  eventDate: string;
+  eventTime: string;
+  packageName: string;
+  bookingId: number;
+  daysRemaining: number;
+}
+
+export async function sendPendingBookingReminder(
+  email: string,
+  booking: PendingBookingReminderDetails,
+  reminderNumber: 1 | 2
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const firstName = booking.customerName.split(' ')[0];
+    const urgencyText = reminderNumber === 1 
+      ? "Just a friendly reminder" 
+      : "Final reminder";
+    const expiryText = booking.daysRemaining === 1 
+      ? "expires tomorrow" 
+      : `expires in ${booking.daysRemaining} days`;
+    
+    const { data, error } = await resend.emails.send({
+      from: 'Foam Works Party Co <noreply@foamworkspartyco.com>',
+      to: email,
+      subject: `${urgencyText}: Complete Your Foam Party Booking!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Foam Works Party Co</h2>
+          <p>Hi ${firstName},</p>
+          
+          <p><strong>${urgencyText}!</strong> You started a foam party booking but haven't completed payment yet. Your reservation ${expiryText}.</p>
+          
+          <div style="background-color: #f4f4f4; padding: 20px; margin: 20px 0; border-radius: 8px;">
+            <h3 style="margin: 0 0 15px 0; color: #333;">Your Booking Details:</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Package:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.packageName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Date:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.eventDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;">Time:</td>
+                <td style="padding: 8px 0; font-weight: 500;">${booking.eventTime}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <p style="color: #666;">To complete your booking, simply visit our website and enter your email address - we'll automatically pull up your saved information!</p>
+          
+          ${reminderNumber === 2 ? `
+          <div style="background-color: #fef3c7; padding: 15px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #f59e0b;">
+            <p style="margin: 0; color: #92400e;"><strong>Don't miss out!</strong> Your reservation will be cancelled tomorrow if payment isn't completed.</p>
+          </div>
+          ` : ''}
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://foamworkspartyco.com" style="display: inline-block; background-color: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">Complete My Booking</a>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">Questions? Reply to this email or use our chatbot for instant help!</p>
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #999; font-size: 12px;">Foam Works Party Co - Foaming Around and Find Out</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend reminder error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Reminder email send error:', err);
+    return { success: false, error: err.message || 'Failed to send reminder email' };
+  }
+}
+
+export async function sendBookingCancelledEmail(
+  email: string,
+  customerName: string,
+  eventDate: string,
+  packageName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const firstName = customerName.split(' ')[0];
+    
+    const { data, error } = await resend.emails.send({
+      from: 'Foam Works Party Co <noreply@foamworkspartyco.com>',
+      to: email,
+      subject: 'Your Foam Party Booking Has Been Cancelled',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Foam Works Party Co</h2>
+          <p>Hi ${firstName},</p>
+          
+          <p>Unfortunately, your foam party booking for <strong>${eventDate}</strong> (${packageName}) has been cancelled because payment was not completed within the 3-day reservation window.</p>
+          
+          <div style="background-color: #fef2f2; padding: 15px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #ef4444;">
+            <p style="margin: 0; color: #991b1b;">Your time slot is now available for other customers.</p>
+          </div>
+          
+          <p>If you'd still like to book a foam party, visit our website to start a new booking. We'd love to help you create an amazing foam party experience!</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://foamworkspartyco.com" style="display: inline-block; background-color: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">Book a New Party</a>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">Questions? Reply to this email or use our chatbot for instant help!</p>
+          
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #999; font-size: 12px;">Foam Works Party Co - Foaming Around and Find Out</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend cancellation error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Cancellation email send error:', err);
+    return { success: false, error: err.message || 'Failed to send cancellation email' };
+  }
+}
+
 interface BookingDetails {
   customerName: string;
   eventDate: string;

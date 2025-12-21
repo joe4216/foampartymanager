@@ -52,6 +52,16 @@ export interface IStorage {
   getBookingByEmailVerificationCode(email: string, code: string): Promise<Booking | undefined>;
   setBookingConfirmationNumber(id: number, confirmationNumber: string): Promise<Booking | undefined>;
   
+  // Abandoned booking recovery methods
+  setPendingExpiry(id: number, expiresAt: Date): Promise<Booking | undefined>;
+  getPendingBookingsNeedingReminder1(): Promise<Booking[]>;
+  getPendingBookingsNeedingReminder2(): Promise<Booking[]>;
+  getExpiredPendingBookings(): Promise<Booking[]>;
+  markReminder1Sent(id: number): Promise<Booking | undefined>;
+  markReminder2Sent(id: number): Promise<Booking | undefined>;
+  autoCancelBooking(id: number, note: string): Promise<Booking | undefined>;
+  findPendingBookingByEmailOrPhone(email: string, phone: string): Promise<Booking | undefined>;
+  
   sessionStore: session.Store;
 }
 
@@ -407,6 +417,114 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bookings.id, id))
       .returning();
     return booking || undefined;
+  }
+
+  async setPendingExpiry(id: number, expiresAt: Date): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ pendingExpiresAt: expiresAt })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
+  }
+
+  async getPendingBookingsNeedingReminder1(): Promise<Booking[]> {
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    const results = await db.select().from(bookings).where(
+      and(
+        eq(bookings.status, "pending"),
+        isNull(bookings.reminder1SentAt)
+      )
+    );
+    
+    return results.filter(b => {
+      if (!b.createdAt) return false;
+      const createdAt = new Date(b.createdAt);
+      return createdAt <= oneDayAgo;
+    });
+  }
+
+  async getPendingBookingsNeedingReminder2(): Promise<Booking[]> {
+    const now = new Date();
+    const twoDaysAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+    
+    const results = await db.select().from(bookings).where(
+      and(
+        eq(bookings.status, "pending"),
+        isNull(bookings.reminder2SentAt)
+      )
+    );
+    
+    return results.filter(b => {
+      if (!b.createdAt || !b.reminder1SentAt) return false;
+      const createdAt = new Date(b.createdAt);
+      return createdAt <= twoDaysAgo;
+    });
+  }
+
+  async getExpiredPendingBookings(): Promise<Booking[]> {
+    const now = new Date();
+    
+    const results = await db.select().from(bookings).where(
+      eq(bookings.status, "pending")
+    );
+    
+    return results.filter(b => {
+      if (b.pendingExpiresAt) {
+        return new Date(b.pendingExpiresAt) <= now;
+      }
+      if (!b.createdAt) return false;
+      const threeDaysAgo = new Date(now.getTime() - 72 * 60 * 60 * 1000);
+      return new Date(b.createdAt) <= threeDaysAgo;
+    });
+  }
+
+  async markReminder1Sent(id: number): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ reminder1SentAt: new Date() })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
+  }
+
+  async markReminder2Sent(id: number): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ reminder2SentAt: new Date() })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
+  }
+
+  async autoCancelBooking(id: number, note: string): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ 
+        status: "cancelled",
+        cancelNote: note
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
+  }
+
+  async findPendingBookingByEmailOrPhone(email: string, phone: string): Promise<Booking | undefined> {
+    const normalizedPhone = phone.replace(/\D/g, "").slice(-10);
+    
+    const results = await db.select().from(bookings).where(
+      eq(bookings.status, "pending")
+    );
+    
+    const match = results.find(b => {
+      const phoneMatch = b.phone?.replace(/\D/g, "").slice(-10) === normalizedPhone;
+      const emailMatch = b.email?.toLowerCase() === email.toLowerCase();
+      return emailMatch || phoneMatch;
+    });
+    
+    return match;
   }
 }
 

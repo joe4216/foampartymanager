@@ -108,6 +108,21 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   });
   const { toast } = useToast();
 
+  const [pendingBookingFound, setPendingBookingFound] = useState<{
+    id: number;
+    customerName: string;
+    email: string;
+    phone: string;
+    address: string;
+    partySize: number;
+    packageType: string;
+    eventDate: string;
+    eventTime: string;
+    notes: string | null;
+  } | null>(null);
+  const [lookupChecked, setLookupChecked] = useState(false);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+
   const { data: existingBookings = [], refetch } = useQuery<Booking[]>({
     queryKey: ["/api/bookings"],
     enabled: open,
@@ -118,8 +133,120 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   useEffect(() => {
     if (open) {
       refetch();
+      setPendingBookingFound(null);
+      setLookupChecked(false);
     }
   }, [open, refetch]);
+
+  // Look up pending booking when email is entered
+  const lookupPendingBooking = async (email: string, phone: string) => {
+    if (!email && !phone) return;
+    if (lookupChecked) return;
+    
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (!email.includes('@') && phoneDigits.length !== 10) return;
+    
+    setIsLookingUp(true);
+    try {
+      const res = await apiRequest("POST", "/api/bookings/lookup-pending", { email, phone });
+      const data = await res.json();
+      
+      setLookupChecked(true);
+      
+      if (data.found && data.booking) {
+        setPendingBookingFound(data.booking);
+      }
+    } catch (error) {
+      console.error("Error looking up pending booking:", error);
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  // Lookup on email blur
+  const handleEmailBlur = () => {
+    if (formData.email.includes('@') && !lookupChecked) {
+      lookupPendingBooking(formData.email, formData.phone);
+    }
+  };
+
+  // Lookup on phone blur
+  const handlePhoneBlur = () => {
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length === 10 && !lookupChecked) {
+      lookupPendingBooking(formData.email, formData.phone);
+    }
+  };
+
+  // Reset lookup flag when email or phone changes
+  const handleEmailChange = (value: string) => {
+    updateField('email', value);
+    if (lookupChecked) {
+      setLookupChecked(false);
+    }
+  };
+
+  const handlePhoneChange = (value: string) => {
+    updateField('phone', formatPhoneNumber(value));
+    if (lookupChecked) {
+      setLookupChecked(false);
+    }
+  };
+
+  // Pre-fill form from pending booking
+  const handleUsePendingBooking = () => {
+    if (!pendingBookingFound) return;
+    
+    const addressParts = pendingBookingFound.address?.split(', ') || [];
+    let streetAddress = '', city = '', stateZip = '';
+    if (addressParts.length >= 3) {
+      streetAddress = addressParts[0];
+      city = addressParts[1];
+      stateZip = addressParts[2];
+    } else if (addressParts.length === 2) {
+      streetAddress = addressParts[0];
+      stateZip = addressParts[1];
+    } else {
+      streetAddress = pendingBookingFound.address || '';
+    }
+    
+    const stateZipParts = stateZip.split(' ');
+    const state = stateZipParts[0] || '';
+    const zipCode = stateZipParts[1] || '';
+    
+    setFormData({
+      customerName: pendingBookingFound.customerName || '',
+      email: pendingBookingFound.email || '',
+      confirmEmail: pendingBookingFound.email || '',
+      phone: formatPhoneNumber(pendingBookingFound.phone || ''),
+      streetAddress,
+      city,
+      state,
+      zipCode,
+      partySize: pendingBookingFound.partySize?.toString() || '',
+      packageType: pendingBookingFound.packageType || '',
+      eventTime: pendingBookingFound.eventTime || '',
+      notes: pendingBookingFound.notes || ''
+    });
+    
+    if (pendingBookingFound.eventDate) {
+      setDate(new Date(pendingBookingFound.eventDate + 'T00:00:00'));
+    }
+    
+    setBookingId(pendingBookingFound.id);
+    setPendingBookingFound(null);
+    
+    toast({
+      title: "Booking Found!",
+      description: "We found your previous booking. Your information has been filled in. Please proceed to payment.",
+    });
+  };
+
+  const handleDismissPendingBooking = () => {
+    setPendingBookingFound(null);
+    // Reset lookup so customer can search again if they correct their info
+    setLookupChecked(false);
+  };
 
   useEffect(() => {
     if (open && selectedPackage) {
@@ -262,6 +389,16 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If we already have a booking ID (from pending booking lookup), go straight to payment
+    if (bookingId) {
+      setStep("payment");
+      toast({
+        title: "Ready for Payment",
+        description: "Your booking details are saved. Choose your payment method to complete.",
+      });
+      return;
+    }
     
     // Get all validation errors
     const errors = getValidationErrors();
@@ -426,6 +563,38 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
 
   const renderDetailsStep = () => (
     <form onSubmit={handleDetailsSubmit} className="space-y-6">
+      {pendingBookingFound && (
+        <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="flex flex-col gap-3">
+            <div>
+              <span className="font-medium text-blue-800 dark:text-blue-200">Welcome back!</span>
+              <span className="text-blue-700 dark:text-blue-300"> We found your incomplete booking from {pendingBookingFound.eventDate}. Would you like to continue where you left off?</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleUsePendingBooking}
+                className="bg-blue-600 hover:bg-blue-700"
+                data-testid="button-use-pending-booking"
+              >
+                Yes, Fill My Info
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDismissPendingBooking}
+                data-testid="button-dismiss-pending-booking"
+              >
+                Start Fresh
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="name">Full Name *</Label>
@@ -445,7 +614,8 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             id="phone"
             type="tel"
             value={formData.phone}
-            onChange={(e) => updateField('phone', formatPhoneNumber(e.target.value))}
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            onBlur={handlePhoneBlur}
             placeholder="(555) 123-4567"
             required
             data-testid="input-phone"
@@ -458,15 +628,23 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
         
         <div className="space-y-2">
           <Label htmlFor="email">Email *</Label>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => updateField('email', e.target.value)}
-            placeholder="john@example.com"
-            required
-            data-testid="input-email"
-          />
+          <div className="relative">
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleEmailChange(e.target.value)}
+              onBlur={handleEmailBlur}
+              placeholder="john@example.com"
+              required
+              data-testid="input-email"
+            />
+            {isLookingUp && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="space-y-2">
