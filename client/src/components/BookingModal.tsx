@@ -263,80 +263,28 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Email confirmation check
-    if (formData.email.trim().toLowerCase() !== formData.confirmEmail.trim().toLowerCase()) {
-      toast({
-        title: "Email Mismatch",
-        description: "The email addresses you entered don't match. Please check and try again.",
-        variant: "destructive",
-      });
-      return;
+    // Get all validation errors
+    const errors = getValidationErrors();
+    
+    // Check minimum advance booking if date is selected
+    if (date) {
+      const minDate = getMinBookableDate();
+      if (date < minDate) {
+        errors.push(`Bookings require at least ${MIN_ADVANCE_HOURS} hours advance notice`);
+      }
     }
-
-    // Phone validation
-    const phoneDigitsCheck = formData.phone.replace(/\D/g, '');
-    if (phoneDigitsCheck.length !== 10) {
+    
+    // If there are errors, show them in a toast
+    if (errors.length > 0) {
       toast({
-        title: "Invalid Phone Number",
-        description: "Please enter a valid 10-digit phone number.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Zip code validation
-    if (!/^\d{5}$/.test(formData.zipCode.trim())) {
-      toast({
-        title: "Invalid Zip Code",
-        description: "Please enter a valid 5-digit zip code.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Party size validation
-    const partySizeNum = parseInt(formData.partySize);
-    if (isNaN(partySizeNum) || partySizeNum < 1) {
-      toast({
-        title: "Invalid Party Size",
-        description: "Please enter a valid party size (at least 1 guest).",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (partySizeNum > MAX_PARTY_SIZE) {
-      toast({
-        title: "Party Size Too Large",
-        description: `Maximum party size is ${MAX_PARTY_SIZE} guests. Please contact us for larger events.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!date) {
-      toast({
-        title: "Date Required",
-        description: "Please select an event date.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check minimum advance booking
-    const minDate = getMinBookableDate();
-    if (date < minDate) {
-      toast({
-        title: "Date Too Soon",
-        description: `Bookings require at least ${MIN_ADVANCE_HOURS} hours advance notice. Please select a later date.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.eventTime) {
-      toast({
-        title: "Time Required",
-        description: "Please select an event time.",
+        title: "Please fix the following:",
+        description: (
+          <ul className="list-disc pl-4 mt-2 space-y-1">
+            {errors.map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+        ),
         variant: "destructive",
       });
       return;
@@ -351,7 +299,7 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       address: fullAddress,
       partySize: parseInt(formData.partySize),
       packageType: formData.packageType,
-      eventDate: format(date, "yyyy-MM-dd"),
+      eventDate: format(date!, "yyyy-MM-dd"),
       eventTime: formData.eventTime,
       notes: formData.notes || null,
     };
@@ -412,26 +360,37 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   const isPhoneValid = phoneDigits.length === 10;
   const isZipValid = /^\d{5}$/.test(formData.zipCode.trim());
   const isEmailMatch = formData.email.trim().toLowerCase() === formData.confirmEmail.trim().toLowerCase();
-  const partySize = parseInt(formData.partySize) || 0;
-  const isPartySizeValid = partySize >= 1 && partySize <= MAX_PARTY_SIZE;
+  const partySizeNum = parseInt(formData.partySize) || 0;
+  const isPartySizeValid = partySizeNum >= 1 && partySizeNum <= MAX_PARTY_SIZE;
 
-  const isFormComplete = 
-    formData.customerName.trim() !== "" &&
-    formData.email.trim() !== "" &&
-    formData.confirmEmail.trim() !== "" &&
-    isEmailMatch &&
-    formData.phone.trim() !== "" &&
-    isPhoneValid &&
-    formData.partySize.trim() !== "" &&
-    isPartySizeValid &&
-    formData.streetAddress.trim() !== "" &&
-    formData.city.trim() !== "" &&
-    formData.state.trim() !== "" &&
-    formData.zipCode.trim() !== "" &&
-    isZipValid &&
-    formData.packageType !== "" &&
-    formData.eventTime !== "" &&
-    date !== undefined;
+  // Get list of validation errors
+  const getValidationErrors = (): string[] => {
+    const errors: string[] = [];
+    
+    if (!formData.customerName.trim()) errors.push("Full name is required");
+    if (!formData.phone.trim()) errors.push("Phone number is required");
+    else if (!isPhoneValid) errors.push("Phone number must be 10 digits");
+    if (!formData.email.trim()) errors.push("Email is required");
+    if (!formData.confirmEmail.trim()) errors.push("Please confirm your email");
+    else if (!isEmailMatch) errors.push("Email addresses don't match");
+    if (!formData.partySize.trim()) errors.push("Party size is required");
+    else if (!isPartySizeValid) {
+      if (partySizeNum < 1) errors.push("Party size must be at least 1");
+      else errors.push(`Party size cannot exceed ${MAX_PARTY_SIZE} guests`);
+    }
+    if (!formData.streetAddress.trim()) errors.push("Street address is required");
+    if (!formData.city.trim()) errors.push("City is required");
+    if (!formData.state.trim()) errors.push("State is required");
+    if (!formData.zipCode.trim()) errors.push("Zip code is required");
+    else if (!isZipValid) errors.push("Zip code must be 5 digits");
+    if (!formData.packageType) errors.push("Please select a package");
+    if (!date) errors.push("Please select an event date");
+    if (!formData.eventTime) errors.push("Please select an event time");
+    
+    return errors;
+  };
+
+  const isFormComplete = getValidationErrors().length === 0;
 
   const handleDialogChange = (isOpen: boolean) => {
     if (!isOpen) {
@@ -867,8 +826,8 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
         </Button>
         <Button 
           type="submit" 
-          disabled={!isFormComplete || isPending}
-          className={`gap-2 ${!isFormComplete ? "bg-muted text-muted-foreground hover:bg-muted" : ""}`}
+          disabled={isPending}
+          className="gap-2"
           data-testid="button-continue-to-payment"
         >
           {isPending ? (
