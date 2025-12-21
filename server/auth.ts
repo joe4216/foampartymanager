@@ -6,7 +6,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
-import { sendVerificationCode } from "./email";
+import { sendVerificationCode, sendPasswordResetCode } from "./email";
 
 declare global {
   namespace Express {
@@ -290,7 +290,7 @@ export function setupAuth(app: Express) {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     
-    const emailResult = await sendVerificationCode(email, code, user.firstName || undefined);
+    const emailResult = await sendPasswordResetCode(email, code, user.firstName || undefined);
     
     if (!emailResult.success) {
       console.error("Failed to send password reset email:", emailResult.error);
