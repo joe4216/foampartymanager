@@ -25,11 +25,11 @@ export default function OwnerDashboard() {
     cancelled: "destructive",
   };
 
-  const confirmedBookings = bookings.filter(b => b.status === "confirmed" || b.status === "pending");
+  const confirmedBookings = bookings.filter(b => b.status === "confirmed" || b.status === "completed");
   const totalRevenue = confirmedBookings.reduce((sum, b) => sum + (packagePrices[b.packageType] || 0), 0);
-  const totalGuests = bookings.reduce((sum, b) => sum + b.partySize, 0);
+  const totalGuests = confirmedBookings.reduce((sum, b) => sum + b.partySize, 0);
   const upcomingEvents = bookings.filter(b => 
-    new Date(b.eventDate) >= new Date() && (b.status === "confirmed" || b.status === "pending")
+    new Date(b.eventDate) >= new Date() && b.status === "confirmed"
   ).length;
 
   const recentBookings = bookings
@@ -59,7 +59,7 @@ export default function OwnerDashboard() {
       </div>
 
       <DashboardStats
-        totalBookings={bookings.length}
+        totalBookings={confirmedBookings.length}
         upcomingEvents={upcomingEvents}
         totalRevenue={totalRevenue}
         totalGuests={totalGuests}
