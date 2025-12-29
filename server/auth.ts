@@ -102,6 +102,17 @@ export function setupAuth(app: Express) {
       });
     }
 
+    // Check if phone number is already registered
+    if (phone) {
+      const existingPhone = await storage.getUserByPhone(phone);
+      if (existingPhone) {
+        return res.status(409).json({ 
+          message: "An account with this phone number already exists",
+          existingAccount: true
+        });
+      }
+    }
+
     // Create user but DON'T auto-login - require email verification first
     const user = await storage.createUser({
       username,
