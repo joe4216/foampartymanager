@@ -60,16 +60,17 @@ export default function BookingCalendar({ bookings }: BookingCalendarProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-7 gap-2">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div key={day} className="text-center font-semibold text-sm text-muted-foreground py-2">
-              {day}
+      <CardContent className="overflow-x-auto">
+        <div className="grid grid-cols-7 gap-1 md:gap-2 min-w-[320px]">
+          {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+            <div key={index} className="text-center font-semibold text-xs md:text-sm text-muted-foreground py-1 md:py-2">
+              <span className="hidden md:inline">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][index]}</span>
+              <span className="md:hidden">{day}</span>
             </div>
           ))}
 
           {paddingDays.map((_, index) => (
-            <div key={`padding-${index}`} className="min-h-[120px]" />
+            <div key={`padding-${index}`} className="min-h-[60px] md:min-h-[100px] lg:min-h-[120px]" />
           ))}
 
           {daysInMonth.map((day) => {
@@ -79,27 +80,32 @@ export default function BookingCalendar({ bookings }: BookingCalendarProps) {
             return (
               <div
                 key={day.toString()}
-                className={`min-h-[120px] border rounded-lg p-2 ${
+                className={`min-h-[60px] md:min-h-[100px] lg:min-h-[120px] border rounded-md md:rounded-lg p-1 md:p-2 ${
                   isCurrentDay ? "border-primary border-2" : ""
                 } ${!isSameMonth(day, currentMonth) ? "opacity-50" : ""}`}
                 data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
               >
-                <div className={`text-sm font-semibold mb-1 ${isCurrentDay ? "text-primary" : ""}`}>
+                <div className={`text-xs md:text-sm font-semibold mb-0.5 md:mb-1 ${isCurrentDay ? "text-primary" : ""}`}>
                   {format(day, "d")}
                 </div>
-                <div className="space-y-1">
-                  {dayBookings.map((booking) => (
+                <div className="space-y-0.5 md:space-y-1">
+                  {dayBookings.slice(0, 2).map((booking) => (
                     <div
                       key={booking.id}
-                      className={`text-xs p-1.5 rounded ${statusColors[booking.status as keyof typeof statusColors]} text-white cursor-pointer hover-elevate`}
+                      className={`text-[10px] md:text-xs p-1 md:p-1.5 rounded ${statusColors[booking.status as keyof typeof statusColors]} text-white cursor-pointer hover-elevate`}
                       title={`${booking.customerName} - ${booking.packageType} at ${booking.eventTime}`}
                       data-testid={`event-${booking.id}`}
                     >
                       <div className="font-semibold truncate">{booking.eventTime}</div>
-                      <div className="truncate">{booking.customerName}</div>
-                      <div className="text-[10px] truncate opacity-90">{booking.packageType}</div>
+                      <div className="truncate hidden md:block">{booking.customerName}</div>
+                      <div className="text-[8px] md:text-[10px] truncate opacity-90 hidden lg:block">{booking.packageType}</div>
                     </div>
                   ))}
+                  {dayBookings.length > 2 && (
+                    <div className="text-[10px] text-muted-foreground text-center">
+                      +{dayBookings.length - 2} more
+                    </div>
+                  )}
                 </div>
               </div>
             );
