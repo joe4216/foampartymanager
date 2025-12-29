@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Table2, Search, X } from "lucide-react";
 import type { Booking } from "@shared/schema";
 
@@ -135,7 +135,8 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
           Showing {filteredBookings.length} of {bookings.length} bookings
         </div>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1" type="always">
+          <div className="min-w-[1000px]">
           <Table>
             <TableHeader>
               <TableRow>
@@ -182,6 +183,8 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
               )}
             </TableBody>
           </Table>
+          </div>
+          <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </DialogContent>
     </Dialog>
