@@ -179,7 +179,8 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(bookings).where(
       and(
         eq(bookings.paymentMethod, "venmo"),
-        eq(bookings.paymentVerified, false)
+        eq(bookings.paymentVerified, false),
+        eq(bookings.status, "pending")
       )
     );
   }
