@@ -1,9 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, User, Package, MapPin, Users, Phone, Mail } from "lucide-react";
 
 import type { Booking } from "@shared/schema";
 
@@ -27,6 +29,7 @@ interface BookingCalendarProps {
 
 export default function BookingCalendar({ bookings }: BookingCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -80,10 +83,11 @@ export default function BookingCalendar({ bookings }: BookingCalendarProps) {
             return (
               <div
                 key={day.toString()}
-                className={`min-h-[60px] md:min-h-[100px] lg:min-h-[120px] border rounded-md md:rounded-lg p-1 md:p-2 ${
+                className={`min-h-[60px] md:min-h-[100px] lg:min-h-[120px] border rounded-md md:rounded-lg p-1 md:p-2 cursor-pointer hover-elevate transition-colors ${
                   isCurrentDay ? "border-primary border-2" : ""
                 } ${!isSameMonth(day, currentMonth) ? "opacity-50" : ""}`}
                 data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
+                onClick={() => setSelectedDay(day)}
               >
                 <div className={`text-xs md:text-sm font-semibold mb-0.5 md:mb-1 ${isCurrentDay ? "text-primary" : ""}`}>
                   {format(day, "d")}
@@ -121,6 +125,94 @@ export default function BookingCalendar({ bookings }: BookingCalendarProps) {
           ))}
         </div>
       </CardContent>
+
+      <Dialog open={selectedDay !== null} onOpenChange={(open) => !open && setSelectedDay(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-['Poppins']">
+              {selectedDay && format(selectedDay, "EEEE, MMMM d, yyyy")}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[60vh]">
+            {selectedDay && (() => {
+              const dayBookings = getBookingsForDate(selectedDay);
+              
+              if (dayBookings.length === 0) {
+                return (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No bookings scheduled for this day
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-4 pr-4">
+                  {dayBookings.map((booking) => (
+                    <div
+                      key={booking.id}
+                      className="border rounded-lg p-4 space-y-3"
+                      data-testid={`day-booking-${booking.id}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-semibold">{booking.eventTime}</span>
+                        </div>
+                        <Badge 
+                          variant={statusVariants[booking.status as keyof typeof statusVariants] || "secondary"}
+                          className={`${statusColors[booking.status as keyof typeof statusColors]} text-white border-0`}
+                        >
+                          {booking.status}
+                        </Badge>
+                      </div>
+
+                      <div className="grid gap-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">{booking.customerName}</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Package className="w-4 h-4 text-muted-foreground" />
+                          <span>{booking.packageType}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-muted-foreground" />
+                          <span>{booking.partySize} guests</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">{booking.email}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">{booking.phone}</span>
+                        </div>
+
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                          <span className="text-muted-foreground">{booking.address}</span>
+                        </div>
+                      </div>
+
+                      {booking.notes && (
+                        <div className="bg-muted rounded p-2 text-sm">
+                          <span className="font-medium">Notes: </span>
+                          {booking.notes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
