@@ -159,13 +159,13 @@ export default function BookingCalendar({ bookings, viewMode }: BookingCalendarP
           </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="max-h-[60vh]">
+          <ScrollArea className="max-h-[60vh]" type="always">
             {dayBookings.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 No bookings scheduled for this day
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 pr-4">
                 {dayBookings.map((booking) => (
                   <BookingCard key={booking.id} booking={booking} />
                 ))}
