@@ -159,19 +159,19 @@ export default function BookingCalendar({ bookings, viewMode }: BookingCalendarP
           </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="max-h-[60vh]" type="always">
+          <div className="max-h-[60vh] overflow-y-auto">
             {dayBookings.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 No bookings scheduled for this day
               </div>
             ) : (
-              <div className="space-y-4 pr-4">
+              <div className="space-y-4 pr-2">
                 {dayBookings.map((booking) => (
                   <BookingCard key={booking.id} booking={booking} />
                 ))}
               </div>
             )}
-          </ScrollArea>
+          </div>
 
           <div className="flex flex-wrap gap-4 mt-6 pt-4 border-t">
             {Object.entries(statusColors).map(([status, color]) => (
