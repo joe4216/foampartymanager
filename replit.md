@@ -61,10 +61,22 @@ Preferred communication style: Simple, everyday language.
 - `GET /api/bookings` - List all bookings
 - `GET /api/bookings/:id` - Fetch single booking
 - `PATCH /api/bookings/:id/status` - Update booking status
+- `POST /api/calculate-distance` - Calculate distance and travel fee from customer address
+- `POST /api/create-checkout-session-for-booking` - Create Stripe checkout with travel fee
 - `POST /api/create-venmo-booking` - Create booking with Venmo payment method
+- `POST /api/process-venmo-booking` - Process Venmo payment for verified booking
 - `POST /api/venmo/upload-receipt` - Upload receipt screenshot for AI verification
 - `GET /api/venmo/pending` - Get pending Venmo payments (owner only)
 - `POST /api/venmo/verify` - Manually verify Venmo payment (owner only)
+
+**Distance-Based Pricing**
+- Base address: 78 Wright Rd, Guntersville, AL 35976
+- Free miles: First 20 miles included in package price
+- Travel fee: $2 per mile for miles beyond 20
+- Uses Geoapify Geocoding + Routing APIs (GEOAPIFY_API_KEY secret required)
+- Frontend auto-calculates when customer enters complete address
+- Stripe creates separate line items for package and travel fee
+- Venmo total includes travel fee with detailed breakdown
 
 **Venmo Payment Integration**
 - Venmo username: @joe4216
@@ -98,7 +110,7 @@ Preferred communication style: Simple, everyday language.
 **Database Schema**
 - `users` table with fields: id, username, password, firstName, lastName, phone, email
 - `verification_codes` table with fields: id, user_id, code, expires_at, created_at, used
-- `bookings` table with fields: id, customerName, email, phone, address, partySize, packageType, eventDate, eventTime, status, notes, createdAt, paymentMethod, expectedAmount, receivedAmount, receiptImageUrl, paymentVerified, verifiedAt, verificationNotes, pendingExpiresAt, reminder1SentAt, reminder2SentAt, cancelNote
+- `bookings` table with fields: id, customerName, email, phone, address, partySize, packageType, eventDate, eventTime, status, notes, createdAt, paymentMethod, expectedAmount, receivedAmount, receiptImageUrl, paymentVerified, verifiedAt, verificationNotes, pendingExpiresAt, reminderSentAt, cancelNote, distanceMiles, travelFee
 - Status enum: pending, confirmed, completed, cancelled
 - Payment methods: stripe, venmo
 - Serial primary key with auto-incrementing IDs
