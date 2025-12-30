@@ -38,8 +38,141 @@ const PACKAGE_PRICES: Record<string, { name: string; amount: number }> = {
   "gender-reveal-1hr": { name: "Gender Reveal Party - 1 hour", amount: 47500 },
 };
 
+// Base address for distance calculation
+const BASE_ADDRESS = "78 Wright Rd, Guntersville, AL 35976";
+const FREE_MILES = 20;
+const PRICE_PER_MILE_CENTS = 200; // $2 per mile
+
+// Geocode an address using Geoapify
+async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
+  const apiKey = process.env.GEOAPIFY_API_KEY;
+  if (!apiKey) {
+    console.error("Missing GEOAPIFY_API_KEY");
+    return null;
+  }
+  
+  try {
+    const encodedAddress = encodeURIComponent(address);
+    const url = `https://api.geoapify.com/v1/geocode/search?text=${encodedAddress}&apiKey=${apiKey}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.features && data.features.length > 0) {
+      const [lon, lat] = data.features[0].geometry.coordinates;
+      return { lat, lon };
+    }
+    return null;
+  } catch (error) {
+    console.error("Geocoding error:", error);
+    return null;
+  }
+}
+
+// Calculate driving distance using Geoapify Routing API
+async function calculateDrivingDistance(
+  fromLat: number, fromLon: number, 
+  toLat: number, toLon: number
+): Promise<number | null> {
+  const apiKey = process.env.GEOAPIFY_API_KEY;
+  if (!apiKey) {
+    console.error("Missing GEOAPIFY_API_KEY");
+    return null;
+  }
+  
+  try {
+    const url = `https://api.geoapify.com/v1/routing?waypoints=${fromLat},${fromLon}|${toLat},${toLon}&mode=drive&apiKey=${apiKey}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.features && data.features.length > 0) {
+      // Distance is returned in meters, convert to miles
+      const distanceMeters = data.features[0].properties.distance;
+      const distanceMiles = distanceMeters / 1609.344;
+      return Math.round(distanceMiles * 10) / 10; // Round to 1 decimal
+    }
+    return null;
+  } catch (error) {
+    console.error("Routing error:", error);
+    return null;
+  }
+}
+
+// Calculate travel fee based on distance
+function calculateTravelFee(distanceMiles: number): number {
+  if (distanceMiles <= FREE_MILES) {
+    return 0;
+  }
+  const extraMiles = Math.ceil(distanceMiles - FREE_MILES);
+  return extraMiles * PRICE_PER_MILE_CENTS; // Returns cents
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
+
+  // Calculate distance and travel fee from customer address
+  app.post("/api/calculate-distance", async (req, res) => {
+    try {
+      const { address } = req.body;
+      
+      if (!address) {
+        res.status(400).json({ error: "Address is required" });
+        return;
+      }
+
+      // Geocode both addresses
+      const [baseCoords, customerCoords] = await Promise.all([
+        geocodeAddress(BASE_ADDRESS),
+        geocodeAddress(address)
+      ]);
+
+      if (!baseCoords) {
+        res.status(500).json({ error: "Could not geocode base address" });
+        return;
+      }
+
+      if (!customerCoords) {
+        res.status(400).json({ 
+          error: "Could not find the address. Please check and try again.",
+          distanceMiles: null,
+          travelFeeCents: 0,
+          travelFeeDollars: 0
+        });
+        return;
+      }
+
+      // Calculate driving distance
+      const distanceMiles = await calculateDrivingDistance(
+        baseCoords.lat, baseCoords.lon,
+        customerCoords.lat, customerCoords.lon
+      );
+
+      if (distanceMiles === null) {
+        res.status(500).json({ 
+          error: "Could not calculate driving distance",
+          distanceMiles: null,
+          travelFeeCents: 0,
+          travelFeeDollars: 0
+        });
+        return;
+      }
+
+      const travelFeeCents = calculateTravelFee(distanceMiles);
+      const travelFeeDollars = travelFeeCents / 100;
+
+      res.json({
+        distanceMiles,
+        travelFeeCents,
+        travelFeeDollars,
+        freeMiles: FREE_MILES,
+        extraMiles: distanceMiles > FREE_MILES ? Math.ceil(distanceMiles - FREE_MILES) : 0,
+        pricePerMile: PRICE_PER_MILE_CENTS / 100
+      });
+    } catch (error) {
+      console.error("Distance calculation error:", error);
+      res.status(500).json({ error: "Failed to calculate distance" });
+    }
+  });
+
   app.post("/api/bookings", async (req, res) => {
     try {
       const validatedData = insertBookingSchema.parse(req.body);

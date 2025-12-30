@@ -63,6 +63,9 @@ export const bookings = pgTable("bookings", {
   pendingExpiresAt: timestamp("pending_expires_at"), // When pending booking expires (3 days after creation)
   reminderSentAt: timestamp("reminder_sent_at"), // When reminder email was sent (day 2, 24hrs before expiry)
   cancelNote: text("cancel_note"), // Note explaining cancellation reason
+  // Distance-based pricing fields
+  distanceMiles: integer("distance_miles"), // Distance from base address in miles
+  travelFee: integer("travel_fee"), // Travel fee in cents (0 if within 20 miles)
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
