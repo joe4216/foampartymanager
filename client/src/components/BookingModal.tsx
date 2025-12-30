@@ -6,10 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, AlertCircle, Clock, Sparkles, CreditCard, ArrowLeft, CheckCircle2, Loader2, Info, Upload, Camera, MessageCircle } from "lucide-react";
+import { CalendarIcon, AlertCircle, Clock, Sparkles, CreditCard, ArrowLeft, CheckCircle2, Loader2, Info, Upload, Camera, MessageCircle, MapPin, Car } from "lucide-react";
 import { SiVenmo } from "react-icons/si";
 import { format } from "date-fns";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +57,26 @@ const findPackageValueByLabel = (label: string): string => {
 const VENMO_USERNAME = "joe4216";
 const MAX_PARTY_SIZE = 500;
 const MIN_ADVANCE_HOURS = 48;
+
+// Package prices in cents (matches backend)
+const PACKAGE_PRICES: Record<string, number> = {
+  "standard-30min": 20000,
+  "standard-1hr": 32500,
+  "standard-2hr": 43000,
+  "glow-30min": 12500,
+  "glow-1hr": 20000,
+  "gender-reveal-30min": 30000,
+  "gender-reveal-1hr": 47500,
+};
+
+interface DistanceInfo {
+  distanceMiles: number;
+  travelFeeCents: number;
+  travelFeeDollars: number;
+  freeMiles: number;
+  extraMiles: number;
+  pricePerMile: number;
+}
 
 // Phone number formatting helper
 const formatPhoneNumber = (value: string): string => {
@@ -122,6 +142,59 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   } | null>(null);
   const [lookupChecked, setLookupChecked] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
+  
+  // Distance-based pricing state
+  const [distanceInfo, setDistanceInfo] = useState<DistanceInfo | null>(null);
+  const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
+  const [distanceError, setDistanceError] = useState<string | null>(null);
+
+  // Calculate total price including travel fee
+  const packagePriceCents = formData.packageType ? (PACKAGE_PRICES[formData.packageType] || 0) : 0;
+  const travelFeeCents = distanceInfo?.travelFeeCents || 0;
+  const totalPriceCents = packagePriceCents + travelFeeCents;
+  const packagePriceDollars = packagePriceCents / 100;
+  const totalPriceDollars = totalPriceCents / 100;
+
+  // Calculate distance when address is complete
+  const calculateDistance = useCallback(async () => {
+    const { streetAddress, city, state, zipCode } = formData;
+    
+    // Only calculate if all address fields are filled
+    if (!streetAddress.trim() || !city.trim() || !state || !zipCode.trim() || !/^\d{5}$/.test(zipCode.trim())) {
+      return;
+    }
+    
+    const fullAddress = `${streetAddress}, ${city}, ${state} ${zipCode}`;
+    
+    setIsCalculatingDistance(true);
+    setDistanceError(null);
+    
+    try {
+      const res = await apiRequest("POST", "/api/calculate-distance", { address: fullAddress });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        setDistanceError(data.error || "Could not calculate distance");
+        setDistanceInfo(null);
+        return;
+      }
+      
+      setDistanceInfo(data);
+    } catch (error) {
+      console.error("Distance calculation error:", error);
+      setDistanceError("Could not calculate distance. Please check your address.");
+      setDistanceInfo(null);
+    } finally {
+      setIsCalculatingDistance(false);
+    }
+  }, [formData.streetAddress, formData.city, formData.state, formData.zipCode]);
+
+  // Calculate distance when zip code is complete (5 digits)
+  const handleZipCodeBlur = () => {
+    if (formData.zipCode.length === 5 && formData.streetAddress && formData.city && formData.state) {
+      calculateDistance();
+    }
+  };
 
   const { data: existingBookings = [], refetch } = useQuery<Booking[]>({
     queryKey: ["/api/bookings"],
@@ -324,7 +397,11 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   // Process Stripe payment
   const processStripeMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest("POST", "/api/create-checkout-session-for-booking", { bookingId: id.toString() });
+      const res = await apiRequest("POST", "/api/create-checkout-session-for-booking", { 
+        bookingId: id.toString(),
+        distanceMiles: distanceInfo?.distanceMiles,
+        travelFeeCents: distanceInfo?.travelFeeCents || 0
+      });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to create checkout session");
@@ -348,22 +425,26 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   // Process Venmo payment
   const processVenmoMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest("POST", "/api/process-venmo-booking", { bookingId: id.toString() });
+      const res = await apiRequest("POST", "/api/process-venmo-booking", { 
+        bookingId: id.toString(),
+        distanceMiles: distanceInfo?.distanceMiles,
+        travelFeeCents: distanceInfo?.travelFeeCents || 0
+      });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to process Venmo payment");
       }
       return data;
     },
-    onSuccess: (data: { bookingId: number; amount: number; packageName: string; eventDate: string; eventTime: string; email: string }) => {
+    onSuccess: (data: { bookingId: number; amount: number; packageName: string; eventDate: string; eventTime: string; email: string; travelFee?: number }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
       
-      const note = encodeURIComponent(`Foam Works Party - Booking #${data.bookingId} - ${data.packageName}`);
+      const note = encodeURIComponent(`Foam Works Party - Booking #${data.bookingId} - ${data.packageName}${data.travelFee && data.travelFee > 0 ? ` + Travel` : ''}`);
       const venmoUrl = `https://venmo.com/${VENMO_USERNAME}?txn=pay&amount=${data.amount}&note=${note}`;
       
       toast({
         title: "Booking Created!",
-        description: `Please complete your $${data.amount} payment via Venmo. Opening Venmo now...`,
+        description: `Please complete your $${data.amount.toFixed(2)} payment via Venmo. Opening Venmo now...`,
       });
       
       window.open(venmoUrl, '_blank');
@@ -478,6 +559,8 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
     setPaymentMethod("card");
     setStep("details");
     setBookingId(null);
+    setDistanceInfo(null);
+    setDistanceError(null);
   };
 
   const isPending = createBookingMutation.isPending || processStripeMutation.isPending || processVenmoMutation.isPending;
@@ -785,7 +868,12 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
               onChange={(e) => {
                 const digits = e.target.value.replace(/\D/g, '').slice(0, 5);
                 updateField('zipCode', digits);
+                // Reset distance info when address changes
+                if (distanceInfo) {
+                  setDistanceInfo(null);
+                }
               }}
+              onBlur={handleZipCodeBlur}
               placeholder="12345"
               required
               data-testid="input-zip-code"
@@ -797,6 +885,41 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
             )}
           </div>
         </div>
+        
+        {/* Distance and Travel Fee Display */}
+        {isCalculatingDistance && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Calculating distance...
+          </div>
+        )}
+        
+        {distanceError && (
+          <Alert variant="destructive" className="py-2">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-sm">{distanceError}</AlertDescription>
+          </Alert>
+        )}
+        
+        {distanceInfo && !isCalculatingDistance && (
+          <div className="p-3 rounded-lg bg-muted/50 border space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <MapPin className="w-4 h-4 text-muted-foreground" />
+              <span><strong>{distanceInfo.distanceMiles} miles</strong> from our base location</span>
+            </div>
+            {distanceInfo.travelFeeCents > 0 ? (
+              <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                <Car className="w-4 h-4" />
+                <span>Travel fee: <strong>${distanceInfo.travelFeeDollars.toFixed(2)}</strong> ({distanceInfo.extraMiles} miles beyond {distanceInfo.freeMiles} free miles @ ${distanceInfo.pricePerMile}/mile)</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>No travel fee! Within {distanceInfo.freeMiles} free miles</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       
       <div className="space-y-2">
@@ -1096,15 +1219,47 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
         )}
       </div>
       
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Booking Summary:</strong><br />
-          {formData.customerName} - {formData.email}<br />
-          {date && format(date, "PPP")} at {formData.eventTime}<br />
-          Package: {ALL_PACKAGES.find(p => p.value === formData.packageType)?.label}
-        </AlertDescription>
-      </Alert>
+      <div className="border rounded-lg p-4 space-y-4">
+        <div className="font-semibold text-sm">Booking Summary</div>
+        <div className="text-sm space-y-1 text-muted-foreground">
+          <div>{formData.customerName} - {formData.email}</div>
+          <div>{date && format(date, "PPP")} at {formData.eventTime}</div>
+        </div>
+        
+        <div className="border-t pt-3 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>{ALL_PACKAGES.find(p => p.value === formData.packageType)?.label}</span>
+            <span>${packagePriceDollars.toFixed(2)}</span>
+          </div>
+          
+          {distanceInfo && distanceInfo.travelFeeCents > 0 && (
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Car className="w-3 h-3" />
+                Travel fee ({distanceInfo.distanceMiles} mi - {distanceInfo.extraMiles} mi extra)
+              </span>
+              <span>${distanceInfo.travelFeeDollars.toFixed(2)}</span>
+            </div>
+          )}
+          
+          {distanceInfo && distanceInfo.travelFeeCents === 0 && (
+            <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Travel fee (within {distanceInfo.freeMiles} free miles)
+              </span>
+              <span>$0.00</span>
+            </div>
+          )}
+          
+          <div className="border-t pt-2 mt-2">
+            <div className="flex justify-between font-semibold">
+              <span>Total</span>
+              <span className="text-lg">${totalPriceDollars.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
       
       <div className="flex gap-4 justify-center">
         <Button 
@@ -1179,7 +1334,10 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
               <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm flex-shrink-0">1</div>
               <div>
                 <p className="font-semibold">Send payment on Venmo</p>
-                <p className="text-sm text-muted-foreground">Open Venmo and send ${ALL_PACKAGES.find(p => p.value === formData.packageType)?.price?.replace(/[+$]/g, '') || '0'} to <strong>@{VENMO_USERNAME}</strong></p>
+                <p className="text-sm text-muted-foreground">Open Venmo and send <strong>${totalPriceDollars.toFixed(2)}</strong> to <strong>@{VENMO_USERNAME}</strong></p>
+                {distanceInfo && distanceInfo.travelFeeCents > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">(Package: ${packagePriceDollars.toFixed(2)} + Travel fee: ${distanceInfo.travelFeeDollars.toFixed(2)})</p>
+                )}
               </div>
             </div>
             

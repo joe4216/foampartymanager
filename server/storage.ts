@@ -61,6 +61,9 @@ export interface IStorage {
   autoCancelBooking(id: number, note: string): Promise<Booking | undefined>;
   findPendingBookingByEmailOrPhone(email: string, phone: string): Promise<Booking | undefined>;
   
+  // Distance-based pricing methods
+  updateBookingTravelFee(id: number, distanceMiles: number, travelFee: number): Promise<Booking | undefined>;
+  
   sessionStore: session.Store;
 }
 
@@ -504,6 +507,18 @@ export class DatabaseStorage implements IStorage {
     });
     
     return match;
+  }
+
+  async updateBookingTravelFee(id: number, distanceMiles: number, travelFee: number): Promise<Booking | undefined> {
+    const [booking] = await db
+      .update(bookings)
+      .set({ 
+        distanceMiles,
+        travelFee
+      })
+      .where(eq(bookings.id, id))
+      .returning();
+    return booking || undefined;
   }
 }
 

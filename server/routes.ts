@@ -343,7 +343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create checkout session for an existing verified booking
   app.post("/api/create-checkout-session-for-booking", async (req, res) => {
     try {
-      const { bookingId } = req.body;
+      const { bookingId, distanceMiles, travelFeeCents } = req.body;
       
       if (!bookingId) {
         res.status(400).json({ error: "Missing booking ID" });
@@ -368,6 +368,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      // Update booking with travel fee if provided
+      const travelFee = travelFeeCents ? parseInt(travelFeeCents) : 0;
+      const distance = distanceMiles ? parseFloat(distanceMiles) : 0;
+      if (travelFee > 0 || distance > 0) {
+        await storage.updateBookingTravelFee(booking.id, Math.round(distance), travelFee);
+      }
+
       const stripe = await getUncachableStripeClient();
       const baseUrl = `${req.protocol}://${req.get('host')}`;
       
@@ -376,19 +383,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? stripeSettings.stripeAccountId 
         : null;
       
-      const sessionParams: any = {
-        payment_method_types: ['card'],
-        line_items: [{
+      // Build line items - package + optional travel fee
+      const lineItems: any[] = [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: packageInfo.name,
+            description: `Event Date: ${booking.eventDate} at ${booking.eventTime}`,
+          },
+          unit_amount: packageInfo.amount,
+        },
+        quantity: 1,
+      }];
+      
+      // Add travel fee as separate line item if applicable
+      if (travelFee > 0) {
+        const extraMiles = distance > FREE_MILES ? Math.ceil(distance - FREE_MILES) : 0;
+        lineItems.push({
           price_data: {
             currency: 'usd',
             product_data: {
-              name: packageInfo.name,
-              description: `Event Date: ${booking.eventDate} at ${booking.eventTime}`,
+              name: 'Travel Fee',
+              description: `Distance: ${distance} miles (${extraMiles} miles beyond ${FREE_MILES} free miles @ $${PRICE_PER_MILE_CENTS / 100}/mile)`,
             },
-            unit_amount: packageInfo.amount,
+            unit_amount: travelFee,
           },
           quantity: 1,
-        }],
+        });
+      }
+      
+      const sessionParams: any = {
+        payment_method_types: ['card'],
+        line_items: lineItems,
         mode: 'payment',
         success_url: `${baseUrl}/booking-success?session_id={CHECKOUT_SESSION_ID}&booking_id=${booking.id}`,
         cancel_url: `${baseUrl}/booking-cancelled?booking_id=${booking.id}`,
@@ -419,7 +445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Process Venmo payment for an existing verified booking
   app.post("/api/process-venmo-booking", async (req, res) => {
     try {
-      const { bookingId } = req.body;
+      const { bookingId, distanceMiles, travelFeeCents } = req.body;
       
       if (!bookingId) {
         res.status(400).json({ error: "Missing booking ID" });
@@ -444,22 +470,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      // Calculate total with travel fee
+      const travelFee = travelFeeCents ? parseInt(travelFeeCents) : 0;
+      const distance = distanceMiles ? parseFloat(distanceMiles) : 0;
+      const totalAmount = packageInfo.amount + travelFee;
+
+      // Update booking with travel fee if provided
+      if (travelFee > 0 || distance > 0) {
+        await storage.updateBookingTravelFee(booking.id, Math.round(distance), travelFee);
+      }
+
       // Update booking with Venmo payment info
       const updatedNotes = booking.notes 
         ? `${booking.notes}\n\n[VENMO PAYMENT - Awaiting payment to @joe4216]`
         : "[VENMO PAYMENT - Awaiting payment to @joe4216]";
       
-      await storage.updateBookingForVenmo(booking.id, packageInfo.amount, updatedNotes);
+      await storage.updateBookingForVenmo(booking.id, totalAmount, updatedNotes);
 
-      const amountInDollars = packageInfo.amount / 100;
+      const amountInDollars = totalAmount / 100;
       res.json({ 
         bookingId: booking.id, 
         amount: amountInDollars,
-        amountCents: packageInfo.amount,
+        amountCents: totalAmount,
         packageName: packageInfo.name,
         eventDate: booking.eventDate,
         eventTime: booking.eventTime,
         email: booking.email,
+        travelFee: travelFee / 100,
         success: true 
       });
     } catch (error) {
