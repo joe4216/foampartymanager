@@ -109,6 +109,49 @@ function calculateTravelFee(distanceMiles: number): number {
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
 
+  // Address autocomplete using Geoapify
+  app.get("/api/address-autocomplete", async (req, res) => {
+    try {
+      const { text } = req.query;
+      
+      if (!text || typeof text !== 'string' || text.length < 3) {
+        res.json({ suggestions: [] });
+        return;
+      }
+
+      const apiKey = process.env.GEOAPIFY_API_KEY;
+      if (!apiKey) {
+        res.status(500).json({ error: "Geocoding service unavailable" });
+        return;
+      }
+
+      const encodedText = encodeURIComponent(text);
+      const url = `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodedText}&type=street&filter=countrycode:us&limit=5&apiKey=${apiKey}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.features && data.features.length > 0) {
+        const suggestions = data.features.map((feature: any) => ({
+          formatted: feature.properties.formatted,
+          streetAddress: feature.properties.address_line1 || feature.properties.street || '',
+          city: feature.properties.city || feature.properties.town || feature.properties.village || '',
+          state: feature.properties.state_code || feature.properties.state || '',
+          zipCode: feature.properties.postcode || '',
+          lat: feature.properties.lat,
+          lon: feature.properties.lon
+        })).filter((s: any) => s.streetAddress && s.city && s.state);
+        
+        res.json({ suggestions });
+      } else {
+        res.json({ suggestions: [] });
+      }
+    } catch (error) {
+      console.error("Autocomplete error:", error);
+      res.json({ suggestions: [] });
+    }
+  });
+
   // Calculate distance and travel fee from customer address
   app.post("/api/calculate-distance", async (req, res) => {
     try {

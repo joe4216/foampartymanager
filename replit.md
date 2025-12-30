@@ -78,6 +78,13 @@ Preferred communication style: Simple, everyday language.
 - Stripe creates separate line items for package and travel fee
 - Venmo total includes travel fee with detailed breakdown
 
+**Address Autocomplete**
+- Powered by Geoapify Autocomplete API (shares GEOAPIFY_API_KEY)
+- Shows suggestions as user types street address (minimum 3 characters)
+- Auto-fills city, state, and zip code when suggestion is selected
+- Automatically triggers distance calculation after selection
+- Endpoint: GET /api/address-autocomplete?text={search_text}
+
 **Venmo Payment Integration**
 - Venmo username: @joe4216
 - AI-powered receipt verification using OpenAI Vision API

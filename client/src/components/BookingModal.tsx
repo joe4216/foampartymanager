@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, AlertCircle, Clock, Sparkles, CreditCard, ArrowLeft, CheckCircle2, Loader2, Info, Upload, Camera, MessageCircle, MapPin, Car } from "lucide-react";
 import { SiVenmo } from "react-icons/si";
 import { format } from "date-fns";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -76,6 +76,16 @@ interface DistanceInfo {
   freeMiles: number;
   extraMiles: number;
   pricePerMile: number;
+}
+
+interface AddressSuggestion {
+  formatted: string;
+  streetAddress: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  lat: number;
+  lon: number;
 }
 
 // Phone number formatting helper
@@ -147,6 +157,14 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
   const [distanceInfo, setDistanceInfo] = useState<DistanceInfo | null>(null);
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
   const [distanceError, setDistanceError] = useState<string | null>(null);
+  
+  // Address autocomplete state
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const autocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Calculate total price including travel fee
   const packagePriceCents = formData.packageType ? (PACKAGE_PRICES[formData.packageType] || 0) : 0;
@@ -195,6 +213,102 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       calculateDistance();
     }
   };
+
+  // Fetch address suggestions
+  const fetchAddressSuggestions = useCallback(async (text: string) => {
+    if (text.length < 3) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    
+    setIsLoadingSuggestions(true);
+    try {
+      const res = await fetch(`/api/address-autocomplete?text=${encodeURIComponent(text)}`);
+      const data = await res.json();
+      setAddressSuggestions(data.suggestions || []);
+      setShowSuggestions(data.suggestions && data.suggestions.length > 0);
+    } catch (error) {
+      console.error("Autocomplete error:", error);
+      setAddressSuggestions([]);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  }, []);
+
+  // Handle address input change with debounce
+  const handleAddressInputChange = (value: string) => {
+    updateField('streetAddress', value);
+    
+    // Clear any existing timeout
+    if (autocompleteTimeoutRef.current) {
+      clearTimeout(autocompleteTimeoutRef.current);
+    }
+    
+    // Reset distance info when address changes
+    if (distanceInfo) {
+      setDistanceInfo(null);
+    }
+    
+    // Debounce the API call
+    autocompleteTimeoutRef.current = setTimeout(() => {
+      fetchAddressSuggestions(value);
+    }, 300);
+  };
+
+  // Select an address suggestion
+  const selectAddressSuggestion = (suggestion: AddressSuggestion) => {
+    setFormData(prev => ({
+      ...prev,
+      streetAddress: suggestion.streetAddress,
+      city: suggestion.city,
+      state: suggestion.state,
+      zipCode: suggestion.zipCode || prev.zipCode
+    }));
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+    setDistanceInfo(null);
+    
+    // Trigger distance calculation if all fields are filled
+    if (suggestion.streetAddress && suggestion.city && suggestion.state && suggestion.zipCode) {
+      const fullAddress = `${suggestion.streetAddress}, ${suggestion.city}, ${suggestion.state} ${suggestion.zipCode}`;
+      setIsCalculatingDistance(true);
+      setDistanceError(null);
+      
+      apiRequest("POST", "/api/calculate-distance", { address: fullAddress })
+        .then(res => res.json())
+        .then(data => {
+          if (data.distanceMiles !== null && data.distanceMiles !== undefined) {
+            setDistanceInfo(data);
+          } else {
+            setDistanceError(data.error || "Could not calculate distance");
+          }
+        })
+        .catch(() => {
+          setDistanceError("Could not calculate distance");
+        })
+        .finally(() => {
+          setIsCalculatingDistance(false);
+        });
+    }
+  };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current && 
+        !suggestionsRef.current.contains(event.target as Node) &&
+        addressInputRef.current &&
+        !addressInputRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const { data: existingBookings = [], refetch } = useQuery<Booking[]>({
     queryKey: ["/api/bookings"],
@@ -773,16 +887,54 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
       
       <div className="space-y-4">
         <Label className="text-base font-semibold">Event Location *</Label>
-        <div className="space-y-2">
+        <div className="space-y-2 relative">
           <Label htmlFor="street-address">Street Address *</Label>
-          <Input
-            id="street-address"
-            value={formData.streetAddress}
-            onChange={(e) => updateField('streetAddress', e.target.value)}
-            placeholder="123 Main St"
-            required
-            data-testid="input-street-address"
-          />
+          <div className="relative">
+            <Input
+              ref={addressInputRef}
+              id="street-address"
+              value={formData.streetAddress}
+              onChange={(e) => handleAddressInputChange(e.target.value)}
+              onFocus={() => {
+                if (addressSuggestions.length > 0) {
+                  setShowSuggestions(true);
+                }
+              }}
+              placeholder="Start typing to search..."
+              required
+              autoComplete="off"
+              data-testid="input-street-address"
+            />
+            {isLoadingSuggestions && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
+          {showSuggestions && addressSuggestions.length > 0 && (
+            <div 
+              ref={suggestionsRef}
+              className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto"
+            >
+              {addressSuggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className="w-full px-3 py-2 text-left text-sm hover-elevate flex items-start gap-2 border-b last:border-b-0"
+                  onClick={() => selectAddressSuggestion(suggestion)}
+                  data-testid={`address-suggestion-${index}`}
+                >
+                  <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <div className="font-medium">{suggestion.streetAddress}</div>
+                    <div className="text-muted-foreground text-xs">
+                      {suggestion.city}, {suggestion.state} {suggestion.zipCode}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="space-y-2 col-span-2 md:col-span-2">
