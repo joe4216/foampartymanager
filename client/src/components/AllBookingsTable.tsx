@@ -6,7 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Table2, Search, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Table2, Search, X, CalendarIcon } from "lucide-react";
+import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import type { Booking } from "@shared/schema";
 
 interface AllBookingsTableProps {
@@ -27,6 +30,8 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
   const [searchPhone, setSearchPhone] = useState("");
   const [searchId, setSearchId] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((booking) => {
@@ -36,9 +41,24 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
       const matchesId = searchId === "" || booking.id.toString() === searchId;
       const matchesStatus = statusFilter === "all" || booking.status === statusFilter;
 
-      return matchesName && matchesEmail && matchesPhone && matchesId && matchesStatus;
+      let matchesDateRange = true;
+      if (startDate || endDate) {
+        const eventDate = parseISO(booking.eventDate);
+        if (startDate && endDate) {
+          matchesDateRange = isWithinInterval(eventDate, {
+            start: startOfDay(startDate),
+            end: endOfDay(endDate)
+          });
+        } else if (startDate) {
+          matchesDateRange = eventDate >= startOfDay(startDate);
+        } else if (endDate) {
+          matchesDateRange = eventDate <= endOfDay(endDate);
+        }
+      }
+
+      return matchesName && matchesEmail && matchesPhone && matchesId && matchesStatus && matchesDateRange;
     });
-  }, [bookings, searchName, searchEmail, searchPhone, searchId, statusFilter]);
+  }, [bookings, searchName, searchEmail, searchPhone, searchId, statusFilter, startDate, endDate]);
 
   const clearFilters = () => {
     setSearchName("");
@@ -46,9 +66,22 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
     setSearchPhone("");
     setSearchId("");
     setStatusFilter("all");
+    setStartDate(undefined);
+    setEndDate(undefined);
   };
 
-  const hasFilters = searchName || searchEmail || searchPhone || searchId || statusFilter !== "all";
+  const hasFilters = searchName || searchEmail || searchPhone || searchId || statusFilter !== "all" || startDate || endDate;
+
+  const getDateRangeLabel = () => {
+    if (startDate && endDate) {
+      return `${format(startDate, "MMM d")} - ${format(endDate, "MMM d")}`;
+    } else if (startDate) {
+      return `From ${format(startDate, "MMM d")}`;
+    } else if (endDate) {
+      return `Until ${format(endDate, "MMM d")}`;
+    }
+    return "Date Range";
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -68,7 +101,7 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
         </DialogHeader>
 
         <div className="flex flex-wrap gap-3 py-4 border-b">
-          <div className="relative flex-1 min-w-[180px]">
+          <div className="relative flex-1 min-w-[160px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search by name..."
@@ -78,7 +111,7 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
               data-testid="input-filter-name"
             />
           </div>
-          <div className="relative flex-1 min-w-[180px]">
+          <div className="relative flex-1 min-w-[160px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search by email..."
@@ -88,17 +121,17 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
               data-testid="input-filter-email"
             />
           </div>
-          <div className="relative flex-1 min-w-[150px]">
+          <div className="relative flex-1 min-w-[130px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search by phone..."
+              placeholder="Search phone..."
               value={searchPhone}
               onChange={(e) => setSearchPhone(e.target.value)}
               className="pl-9"
               data-testid="input-filter-phone"
             />
           </div>
-          <div className="w-[120px]">
+          <div className="w-[100px]">
             <Input
               placeholder="Booking #"
               value={searchId}
@@ -107,7 +140,7 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]" data-testid="select-filter-status">
+            <SelectTrigger className="w-[130px]" data-testid="select-filter-status">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -118,6 +151,56 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
               <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
+          
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="outline" 
+                className={`w-[180px] justify-start text-left font-normal ${(startDate || endDate) ? "" : "text-muted-foreground"}`}
+                data-testid="button-date-range"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {getDateRangeLabel()}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <div className="p-4 space-y-4">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Start Date</div>
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={setStartDate}
+                    initialFocus
+                  />
+                </div>
+                <div className="border-t pt-4 space-y-2">
+                  <div className="text-sm font-medium">End Date</div>
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={setEndDate}
+                    disabled={(date) => startDate ? date < startDate : false}
+                  />
+                </div>
+                <div className="flex gap-2 pt-2 border-t">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => {
+                      setStartDate(undefined);
+                      setEndDate(undefined);
+                    }}
+                    data-testid="button-clear-dates"
+                  >
+                    Clear Dates
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           {hasFilters && (
             <Button 
               variant="ghost" 
@@ -126,13 +209,18 @@ export default function AllBookingsTable({ bookings }: AllBookingsTableProps) {
               data-testid="button-clear-filters"
             >
               <X className="w-4 h-4 mr-1" />
-              Clear
+              Clear All
             </Button>
           )}
         </div>
 
         <div className="text-sm text-muted-foreground py-2" data-testid="text-bookings-count">
           Showing {filteredBookings.length} of {bookings.length} bookings
+          {(startDate || endDate) && (
+            <span className="ml-2">
+              ({startDate ? format(startDate, "MMM d, yyyy") : "..."} - {endDate ? format(endDate, "MMM d, yyyy") : "..."})
+            </span>
+          )}
         </div>
 
         <ScrollArea className="flex-1" type="always">
