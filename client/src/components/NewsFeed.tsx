@@ -3,8 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Calendar, MapPin, Users, ThumbsUp, Share2, Loader2, PartyPopper } from "lucide-react";
+import { Play, Calendar, MapPin, Users, ThumbsUp, Share2, Loader2, PartyPopper, Link2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SiFacebook, SiX, SiInstagram } from "react-icons/si";
+import { useToast } from "@/hooks/use-toast";
 import type { NewsFeedEvent } from "@shared/schema";
 import partyImage1 from "@assets/stock_images/foam_party_concert_c_e76f1010.jpg";
 import partyImage2 from "@assets/stock_images/foam_party_concert_c_49509d2b.jpg";
@@ -15,6 +18,7 @@ const defaultThumbnails = [partyImage1, partyImage2, partyImage3];
 export default function NewsFeed() {
   const [selectedVideo, setSelectedVideo] = useState<number | null>(null);
   const [hoveredVideo, setHoveredVideo] = useState<number | null>(null);
+  const { toast } = useToast();
   
   const { data: events = [], isLoading } = useQuery<NewsFeedEvent[]>({
     queryKey: ["/api/news-feed"],
@@ -23,6 +27,38 @@ export default function NewsFeed() {
   const getThumbnail = (event: NewsFeedEvent, index: number) => {
     if (event.thumbnailUrl) return event.thumbnailUrl;
     return defaultThumbnails[index % defaultThumbnails.length];
+  };
+
+  const getShareUrl = () => {
+    return typeof window !== "undefined" ? window.location.origin : "";
+  };
+
+  const shareOnFacebook = (event: NewsFeedEvent) => {
+    const url = encodeURIComponent(getShareUrl());
+    const text = encodeURIComponent(`Check out this amazing foam party: ${event.title}`);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, "_blank", "width=600,height=400");
+  };
+
+  const shareOnX = (event: NewsFeedEvent) => {
+    const url = encodeURIComponent(getShareUrl());
+    const text = encodeURIComponent(`Check out this amazing foam party: ${event.title} 🎉`);
+    window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, "_blank", "width=600,height=400");
+  };
+
+  const shareOnInstagram = () => {
+    toast({
+      title: "Share on Instagram",
+      description: "Copy the link and share it in your Instagram story or post!",
+    });
+    navigator.clipboard.writeText(getShareUrl());
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(getShareUrl());
+    toast({
+      title: "Link Copied",
+      description: "The link has been copied to your clipboard.",
+    });
   };
 
   if (isLoading) {
@@ -147,10 +183,51 @@ export default function NewsFeed() {
                     <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors" data-testid={`button-like-${event.id}`}>
                       <ThumbsUp className="w-4 h-4" />
                     </button>
-                    <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors" data-testid={`button-share-${event.id}`}>
-                      <Share2 className="w-4 h-4" />
-                      <span className="text-sm">Share</span>
-                    </button>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors" data-testid={`button-share-${event.id}`}>
+                          <Share2 className="w-4 h-4" />
+                          <span className="text-sm">Share</span>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-2" align="start">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => shareOnFacebook(event)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors text-left"
+                            data-testid={`button-share-facebook-${event.id}`}
+                          >
+                            <SiFacebook className="w-4 h-4 text-[#1877F2]" />
+                            <span className="text-sm">Facebook</span>
+                          </button>
+                          <button
+                            onClick={() => shareOnX(event)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors text-left"
+                            data-testid={`button-share-x-${event.id}`}
+                          >
+                            <SiX className="w-4 h-4" />
+                            <span className="text-sm">X (Twitter)</span>
+                          </button>
+                          <button
+                            onClick={shareOnInstagram}
+                            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors text-left"
+                            data-testid={`button-share-instagram-${event.id}`}
+                          >
+                            <SiInstagram className="w-4 h-4 text-[#E4405F]" />
+                            <span className="text-sm">Instagram</span>
+                          </button>
+                          <div className="border-t my-1" />
+                          <button
+                            onClick={copyLink}
+                            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors text-left"
+                            data-testid={`button-copy-link-${event.id}`}
+                          >
+                            <Link2 className="w-4 h-4" />
+                            <span className="text-sm">Copy Link</span>
+                          </button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </CardContent>
