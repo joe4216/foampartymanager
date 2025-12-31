@@ -51,6 +51,7 @@ export default function NewsFeedPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [customCategory, setCustomCategory] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: events = [], isLoading } = useQuery<NewsFeedEvent[]>({
@@ -81,6 +82,7 @@ export default function NewsFeedPage() {
       toast({ title: "Event Created", description: "Your event has been added to the news feed." });
       setShowForm(false);
       form.reset();
+      setCustomCategory("");
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create event.", variant: "destructive" });
@@ -97,6 +99,7 @@ export default function NewsFeedPage() {
       toast({ title: "Event Updated", description: "Your event has been updated." });
       setEditingEvent(null);
       form.reset();
+      setCustomCategory("");
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update event.", variant: "destructive" });
@@ -175,11 +178,13 @@ export default function NewsFeedPage() {
       category: "",
     });
     setThumbnailPreview(null);
+    setCustomCategory("");
     setShowForm(true);
   };
 
   const handleEdit = (event: NewsFeedEvent) => {
     setEditingEvent(event);
+    const isCustomCategory = !PARTY_CATEGORIES.some(c => c.value === event.category);
     form.reset({
       title: event.title,
       videoUrl: event.videoUrl,
@@ -190,6 +195,7 @@ export default function NewsFeedPage() {
       description: event.description,
       category: event.category,
     });
+    setCustomCategory(isCustomCategory ? event.category : "");
     setThumbnailPreview(event.thumbnailUrl || null);
   };
 
@@ -322,6 +328,7 @@ export default function NewsFeedPage() {
           setShowForm(false);
           setEditingEvent(null);
           setThumbnailPreview(null);
+          setCustomCategory("");
           form.reset();
         }
       }}>
@@ -486,7 +493,15 @@ export default function NewsFeedPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type of Party</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select 
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        if (value !== "Other") {
+                          setCustomCategory("");
+                        }
+                      }} 
+                      value={PARTY_CATEGORIES.some(c => c.value === field.value) ? field.value : (field.value ? "Other" : "")}
+                    >
                       <FormControl>
                         <SelectTrigger data-testid="select-event-category">
                           <SelectValue placeholder="Select party type" />
@@ -500,6 +515,18 @@ export default function NewsFeedPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {(field.value === "Other" || (field.value && !PARTY_CATEGORIES.some(c => c.value === field.value))) && (
+                      <Input
+                        placeholder="Enter custom party type"
+                        value={customCategory || (PARTY_CATEGORIES.some(c => c.value === field.value) ? "" : field.value)}
+                        onChange={(e) => {
+                          setCustomCategory(e.target.value);
+                          field.onChange(e.target.value || "Other");
+                        }}
+                        className="mt-2"
+                        data-testid="input-custom-category"
+                      />
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -531,6 +558,7 @@ export default function NewsFeedPage() {
                   onClick={() => {
                     setShowForm(false);
                     setEditingEvent(null);
+                    setCustomCategory("");
                     form.reset();
                   }}
                 >
