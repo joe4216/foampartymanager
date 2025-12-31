@@ -94,6 +94,7 @@ export default function VenmoVerificationQueue() {
 
   if (pendingBookings.length === 0) {
     return (
+      <>
       <Card>
         <CardHeader>
           <CardTitle className="font-['Poppins'] flex items-center gap-2">
@@ -142,12 +143,131 @@ export default function VenmoVerificationQueue() {
                       Payment: {booking.paymentMethod === "venmo" ? "Venmo" : "Stripe"}
                     </div>
                   )}
+                  
+                  <div className="flex items-center gap-2 flex-wrap pt-2">
+                    {booking.receiptImageUrl && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedBooking(booking);
+                          setShowReceiptModal(true);
+                        }}
+                        data-testid={`button-view-receipt-pending-${booking.id}`}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View Receipt
+                      </Button>
+                    )}
+                    
+                    <div className="flex-1" />
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedBooking(booking);
+                        setReceivedAmount(((booking.expectedAmount || 0) / 100).toFixed(2));
+                      }}
+                      data-testid={`button-verify-pending-${booking.id}`}
+                    >
+                      Verify Manually
+                    </Button>
+                    
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleApprove(booking)}
+                      disabled={verifyMutation.isPending}
+                      data-testid={`button-approve-pending-${booking.id}`}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Approve
+                    </Button>
+                    
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleReject(booking)}
+                      disabled={verifyMutation.isPending}
+                      data-testid={`button-reject-pending-${booking.id}`}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      Reject
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={showReceiptModal} onOpenChange={setShowReceiptModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Venmo Receipt - Booking #{selectedBooking?.id}</DialogTitle>
+          </DialogHeader>
+          {selectedBooking?.receiptImageUrl && (
+            <div className="max-h-[60vh] overflow-auto">
+              <img 
+                src={selectedBooking.receiptImageUrl} 
+                alt="Venmo Receipt" 
+                className="w-full rounded-lg"
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReceiptModal(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={selectedBooking !== null && !showReceiptModal} onOpenChange={(open) => !open && setSelectedBooking(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify Payment - Booking #{selectedBooking?.id}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-muted rounded-lg p-4">
+              <p className="text-sm text-muted-foreground">Expected amount:</p>
+              <p className="text-xl font-bold">${((selectedBooking?.expectedAmount || 0) / 100).toFixed(2)}</p>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">Actual Amount Received ($)</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={receivedAmount}
+                onChange={(e) => setReceivedAmount(e.target.value)}
+                placeholder="Enter amount received"
+                className="mt-1"
+                data-testid="input-received-amount-pending"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setSelectedBooking(null)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => selectedBooking && handleApprove(selectedBooking)}
+              disabled={verifyMutation.isPending || !receivedAmount}
+            >
+              {verifyMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-1" />
+              ) : (
+                <CheckCircle className="w-4 h-4 mr-1" />
+              )}
+              Confirm Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
     );
   }
 
