@@ -144,11 +144,12 @@ export default function VenmoVerificationQueue() {
                     </div>
                   )}
                   
-                  <div className="flex items-center gap-2 flex-wrap pt-2">
+                  <div className="flex flex-col gap-2 pt-2">
                     {booking.receiptImageUrl && (
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => {
                           setSelectedBooking(booking);
                           setShowReceiptModal(true);
@@ -160,41 +161,44 @@ export default function VenmoVerificationQueue() {
                       </Button>
                     )}
                     
-                    <div className="flex-1" />
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedBooking(booking);
-                        setReceivedAmount(((booking.expectedAmount || 0) / 100).toFixed(2));
-                      }}
-                      data-testid={`button-verify-pending-${booking.id}`}
-                    >
-                      Verify Manually
-                    </Button>
-                    
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleApprove(booking)}
-                      disabled={verifyMutation.isPending}
-                      data-testid={`button-approve-pending-${booking.id}`}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      Approve
-                    </Button>
-                    
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleReject(booking)}
-                      disabled={verifyMutation.isPending}
-                      data-testid={`button-reject-pending-${booking.id}`}
-                    >
-                      <XCircle className="w-4 h-4 mr-1" />
-                      Reject
-                    </Button>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedBooking(booking);
+                          setReceivedAmount(((booking.expectedAmount || 0) / 100).toFixed(2));
+                        }}
+                        data-testid={`button-verify-pending-${booking.id}`}
+                      >
+                        Verify Manually
+                      </Button>
+                      
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleApprove(booking)}
+                        disabled={verifyMutation.isPending}
+                        data-testid={`button-approve-pending-${booking.id}`}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Approve
+                      </Button>
+                      
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleReject(booking)}
+                        disabled={verifyMutation.isPending}
+                        data-testid={`button-reject-pending-${booking.id}`}
+                      >
+                        <XCircle className="w-4 h-4 mr-1" />
+                        Reject
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -321,11 +325,12 @@ export default function VenmoVerificationQueue() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex flex-col gap-2">
                   {booking.receiptImageUrl && (
                     <Button
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         setSelectedBooking(booking);
                         setShowReceiptModal(true);
@@ -337,41 +342,44 @@ export default function VenmoVerificationQueue() {
                     </Button>
                   )}
                   
-                  <div className="flex-1" />
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedBooking(booking);
-                      setReceivedAmount(((booking.expectedAmount || 0) / 100).toFixed(2));
-                    }}
-                    data-testid={`button-verify-${booking.id}`}
-                  >
-                    Verify Manually
-                  </Button>
-                  
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleApprove(booking)}
-                    disabled={verifyMutation.isPending}
-                    data-testid={`button-approve-${booking.id}`}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    Approve
-                  </Button>
-                  
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleReject(booking)}
-                    disabled={verifyMutation.isPending}
-                    data-testid={`button-reject-${booking.id}`}
-                  >
-                    <XCircle className="w-4 h-4 mr-1" />
-                    Reject
-                  </Button>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setSelectedBooking(booking);
+                        setReceivedAmount(((booking.expectedAmount || 0) / 100).toFixed(2));
+                      }}
+                      data-testid={`button-verify-${booking.id}`}
+                    >
+                      Verify Manually
+                    </Button>
+                    
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleApprove(booking)}
+                      disabled={verifyMutation.isPending}
+                      data-testid={`button-approve-${booking.id}`}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      Approve
+                    </Button>
+                    
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleReject(booking)}
+                      disabled={verifyMutation.isPending}
+                      data-testid={`button-reject-${booking.id}`}
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      Reject
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
