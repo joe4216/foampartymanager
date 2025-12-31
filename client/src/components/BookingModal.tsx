@@ -1417,6 +1417,17 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
           </div>
         </div>
       </div>
+
+      <div className="text-xs text-muted-foreground p-3 bg-muted/30 rounded-lg space-y-1" data-testid="policy-section">
+        <p className="font-medium text-foreground">Rescheduling & Cancellation Policy:</p>
+        <ul className="list-disc list-inside space-y-0.5">
+          <li>Free rescheduling up to 48 hours before your event</li>
+          <li>Cancellations made 48+ hours in advance receive a full refund</li>
+          <li>Cancellations within 48 hours receive a 50% refund</li>
+          <li>No-shows or same-day cancellations are non-refundable</li>
+        </ul>
+        <p className="mt-2">Contact us via chat or email to reschedule or cancel.</p>
+      </div>
       
       <div className="flex gap-4 justify-center">
         <Button 
