@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { CheckCircle, XCircle, Eye, DollarSign, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle, Eye, DollarSign, AlertTriangle, Loader2, Clock, Calendar } from "lucide-react";
 import { SiVenmo } from "react-icons/si";
 import type { Booking } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -20,6 +20,14 @@ export default function VenmoVerificationQueue() {
   const { data: pendingBookings = [], isLoading } = useQuery<Booking[]>({
     queryKey: ["/api/venmo/pending"],
   });
+
+  // Fetch all bookings to find pending status ones
+  const { data: allBookings = [], isLoading: isLoadingAll } = useQuery<Booking[]>({
+    queryKey: ["/api/bookings"],
+  });
+
+  // Get bookings with "pending" status (not yet paid)
+  const pendingStatusBookings = allBookings.filter(b => b.status === "pending");
 
   const verifyMutation = useMutation({
     mutationFn: async ({ bookingId, receivedAmount, verified, notes }: {
@@ -74,7 +82,7 @@ export default function VenmoVerificationQueue() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingAll) {
     return (
       <Card>
         <CardContent className="py-8 text-center">
@@ -89,14 +97,55 @@ export default function VenmoVerificationQueue() {
       <Card>
         <CardHeader>
           <CardTitle className="font-['Poppins'] flex items-center gap-2">
-            <SiVenmo className="w-5 h-5 text-[#3D95CE]" />
-            Venmo Payments
+            <Clock className="w-5 h-5 text-amber-500" />
+            Pending Bookings
+            {pendingStatusBookings.length > 0 && (
+              <Badge variant="secondary" className="ml-2">{pendingStatusBookings.length}</Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-center py-4">
-            No pending Venmo payments to verify
-          </p>
+          {pendingStatusBookings.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">
+              No pending bookings awaiting payment
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {pendingStatusBookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="border rounded-lg p-3 space-y-2"
+                  data-testid={`pending-booking-${booking.id}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold truncate">{booking.customerName}</div>
+                      <div className="text-sm text-muted-foreground flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {booking.eventDate} at {booking.eventTime}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {booking.packageType}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <Badge variant="outline" className="text-amber-600 border-amber-300">
+                        Pending
+                      </Badge>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        #{booking.id}
+                      </div>
+                    </div>
+                  </div>
+                  {booking.paymentMethod && (
+                    <div className="text-xs text-muted-foreground">
+                      Payment: {booking.paymentMethod === "venmo" ? "Venmo" : "Stripe"}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
