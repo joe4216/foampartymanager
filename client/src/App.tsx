@@ -12,6 +12,7 @@ import CalendarView from "@/pages/CalendarView";
 import KanbanView from "@/pages/KanbanView";
 import PaymentsSettings from "@/pages/PaymentsSettings";
 import IntegrationsPage from "@/pages/IntegrationsPage";
+import NewsFeedPage from "@/pages/NewsFeedPage";
 import AuthPage from "@/pages/AuthPage";
 import BookingSuccess from "@/pages/BookingSuccess";
 import BookingCancelled from "@/pages/BookingCancelled";
@@ -87,6 +88,14 @@ function Router() {
         component={() => (
           <OwnerLayout>
             <IntegrationsPage />
+          </OwnerLayout>
+        )}
+      />
+      <ProtectedRoute 
+        path="/owner/news-feed" 
+        component={() => (
+          <OwnerLayout>
+            <NewsFeedPage />
           </OwnerLayout>
         )}
       />
