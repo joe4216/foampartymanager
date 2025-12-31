@@ -68,6 +68,20 @@ export const bookings = pgTable("bookings", {
   travelFee: integer("travel_fee"), // Travel fee in cents (0 if within 20 miles)
 });
 
+export const newsFeedEvents = pgTable("news_feed_events", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  videoUrl: text("video_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  date: text("date").notNull(),
+  location: text("location").notNull(),
+  attendees: text("attendees").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(),
+  likes: integer("likes").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
 });
@@ -82,6 +96,12 @@ export const bookingStatusSchema = z.object({
   status: z.enum(["pending", "confirmed", "completed", "cancelled"]),
 });
 
+export const insertNewsFeedEventSchema = createInsertSchema(newsFeedEvents).omit({
+  id: true,
+  createdAt: true,
+  likes: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
@@ -89,3 +109,5 @@ export type Booking = typeof bookings.$inferSelect;
 export type BookingStatus = z.infer<typeof bookingStatusSchema>;
 export type StripeSettings = typeof stripeSettings.$inferSelect;
 export type VerificationCode = typeof verificationCodes.$inferSelect;
+export type NewsFeedEvent = typeof newsFeedEvents.$inferSelect;
+export type InsertNewsFeedEvent = z.infer<typeof insertNewsFeedEventSchema>;

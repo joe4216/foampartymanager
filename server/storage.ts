@@ -1,6 +1,6 @@
-import { bookings, users, stripeSettings, verificationCodes, type Booking, type InsertBooking, type User, type InsertUser, type StripeSettings, type VerificationCode } from "@shared/schema";
+import { bookings, users, stripeSettings, verificationCodes, newsFeedEvents, type Booking, type InsertBooking, type User, type InsertUser, type StripeSettings, type VerificationCode, type NewsFeedEvent, type InsertNewsFeedEvent } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, isNull, gt } from "drizzle-orm";
+import { eq, and, isNull, gt, desc } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -63,6 +63,13 @@ export interface IStorage {
   
   // Distance-based pricing methods
   updateBookingTravelFee(id: number, distanceMiles: number, travelFee: number): Promise<Booking | undefined>;
+  
+  // News feed event methods
+  createNewsFeedEvent(event: InsertNewsFeedEvent): Promise<NewsFeedEvent>;
+  getNewsFeedEvents(): Promise<NewsFeedEvent[]>;
+  getNewsFeedEvent(id: number): Promise<NewsFeedEvent | undefined>;
+  updateNewsFeedEvent(id: number, event: Partial<InsertNewsFeedEvent>): Promise<NewsFeedEvent | undefined>;
+  deleteNewsFeedEvent(id: number): Promise<boolean>;
   
   sessionStore: session.Store;
 }
@@ -519,6 +526,37 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bookings.id, id))
       .returning();
     return booking || undefined;
+  }
+
+  async createNewsFeedEvent(event: InsertNewsFeedEvent): Promise<NewsFeedEvent> {
+    const [newEvent] = await db
+      .insert(newsFeedEvents)
+      .values(event)
+      .returning();
+    return newEvent;
+  }
+
+  async getNewsFeedEvents(): Promise<NewsFeedEvent[]> {
+    return await db.select().from(newsFeedEvents).orderBy(desc(newsFeedEvents.createdAt));
+  }
+
+  async getNewsFeedEvent(id: number): Promise<NewsFeedEvent | undefined> {
+    const [event] = await db.select().from(newsFeedEvents).where(eq(newsFeedEvents.id, id));
+    return event || undefined;
+  }
+
+  async updateNewsFeedEvent(id: number, event: Partial<InsertNewsFeedEvent>): Promise<NewsFeedEvent | undefined> {
+    const [updated] = await db
+      .update(newsFeedEvents)
+      .set(event)
+      .where(eq(newsFeedEvents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteNewsFeedEvent(id: number): Promise<boolean> {
+    const result = await db.delete(newsFeedEvents).where(eq(newsFeedEvents.id, id));
+    return true;
   }
 }
 
