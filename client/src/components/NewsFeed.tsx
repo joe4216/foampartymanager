@@ -125,26 +125,30 @@ export default function NewsFeed() {
                   <img 
                     src={getThumbnail(event, index)}
                     alt={event.title}
-                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${hoveredVideo === event.id ? 'opacity-0' : 'opacity-100'}`}
+                    className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${event.videoUrl && hoveredVideo === event.id ? 'opacity-0' : 'opacity-100'}`}
                   />
-                  <iframe
-                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hoveredVideo === event.id ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                    src={hoveredVideo === event.id ? `${event.videoUrl}?autoplay=1&mute=1&controls=0&loop=1&playlist=${event.videoUrl.split('/').pop()}` : 'about:blank'}
-                    title={event.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    data-testid={`iframe-hover-preview-${event.id}`}
-                  />
+                  {event.videoUrl && (
+                    <iframe
+                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hoveredVideo === event.id ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                      src={hoveredVideo === event.id ? `${event.videoUrl}?autoplay=1&mute=1&controls=0&loop=1&playlist=${event.videoUrl.split('/').pop()}` : 'about:blank'}
+                      title={event.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      data-testid={`iframe-hover-preview-${event.id}`}
+                    />
+                  )}
                   <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors pointer-events-none" />
-                  <div className="absolute inset-0 flex items-center justify-center z-20">
-                    <Button 
-                      size="icon" 
-                      className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md border-white/30 text-white hover:bg-white/30 pointer-events-auto"
-                      onClick={() => setSelectedVideo(event.id)}
-                      data-testid={`button-play-video-${event.id}`}
-                    >
-                      <Play className="w-8 h-8 ml-1" fill="currentColor" />
-                    </Button>
-                  </div>
+                  {event.videoUrl && (
+                    <div className="absolute inset-0 flex items-center justify-center z-20">
+                      <Button 
+                        size="icon" 
+                        className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md border-white/30 text-white hover:bg-white/30 pointer-events-auto"
+                        onClick={() => setSelectedVideo(event.id)}
+                        data-testid={`button-play-video-${event.id}`}
+                      >
+                        <Play className="w-8 h-8 ml-1" fill="currentColor" />
+                      </Button>
+                    </div>
+                  )}
                   <div className="absolute top-4 right-4 z-10 pointer-events-none">
                     <Badge className="bg-primary/90 backdrop-blur-sm" data-testid={`badge-category-${event.id}`}>
                       {event.category}
