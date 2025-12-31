@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import OwnerSidebar from "@/components/OwnerSidebar";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/HomePage";
@@ -28,8 +28,14 @@ function OwnerLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <OwnerSidebar />
-        <div className="flex-1 overflow-auto">
-          {children}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <header className="md:hidden flex items-center gap-3 p-4 border-b bg-background sticky top-0 z-10">
+            <SidebarTrigger data-testid="button-mobile-menu" />
+            <h1 className="font-semibold font-['Poppins']">Foam Works Party Co</h1>
+          </header>
+          <div className="flex-1 overflow-auto">
+            {children}
+          </div>
         </div>
       </div>
     </SidebarProvider>
