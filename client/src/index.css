@@ -286,3 +286,24 @@
     inset: -1px;
   }
 }
+
+/* Calendar availability dot indicators */
+.calendar-available::after {
+  content: "";
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: hsl(var(--primary));
+  margin-top: 1px;
+}
+
+.calendar-partial::after {
+  content: "";
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: hsl(45, 93%, 47%);
+  margin-top: 1px;
+}

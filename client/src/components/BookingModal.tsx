@@ -1174,8 +1174,8 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                   head_row: "flex justify-between",
                   head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem] text-center",
                   row: "flex w-full mt-1 justify-between",
-                  cell: "h-8 w-8 text-center text-sm p-0 relative",
-                  day: "h-8 w-8 p-0 font-normal rounded-md hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground aria-selected:opacity-100",
+                  cell: "h-10 w-8 text-center text-sm p-0 relative",
+                  day: "h-10 w-8 p-0 font-normal rounded-md hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground aria-selected:opacity-100 flex flex-col items-center justify-center",
                   day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
                   day_today: "bg-accent text-accent-foreground",
                   day_outside: "text-muted-foreground opacity-50",
@@ -1190,6 +1190,14 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                   return isTooSoon || isFullyBooked;
                 }}
                 modifiers={{
+                  fullyAvailable: (checkDate) => {
+                    const minDate = getMinBookableDate();
+                    if (checkDate < minDate) return false;
+                    const dateString = format(checkDate, "yyyy-MM-dd");
+                    if (fullyBookedDates.has(dateString)) return false;
+                    const bookedCount = getBookedSlotsCount(checkDate);
+                    return bookedCount === 0;
+                  },
                   partiallyBooked: (checkDate) => {
                     const minDate = getMinBookableDate();
                     if (checkDate < minDate) return false;
@@ -1197,12 +1205,9 @@ export default function BookingModal({ open, onOpenChange, selectedPackage }: Bo
                     return bookedCount > 0 && bookedCount < ALL_TIME_SLOTS.length;
                   }
                 }}
-                modifiersStyles={{
-                  partiallyBooked: {
-                    backgroundColor: "hsl(45, 93%, 47%)",
-                    color: "hsl(0, 0%, 0%)",
-                    fontWeight: "bold"
-                  }
+                modifiersClassNames={{
+                  fullyAvailable: "calendar-available",
+                  partiallyBooked: "calendar-partial"
                 }}
                 data-testid="calendar-event-date"
               />
