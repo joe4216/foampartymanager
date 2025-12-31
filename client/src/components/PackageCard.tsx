@@ -1,5 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, Clock } from "lucide-react";
 
@@ -22,10 +27,13 @@ export default function PackageCard({
   description,
   popular,
   image,
-  onBook
+  onBook,
 }: PackageCardProps) {
   return (
-    <Card className="hover-elevate relative h-full flex flex-col" data-testid={`card-package-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+    <Card
+      className="hover-elevate relative h-full flex flex-col"
+      data-testid={`card-package-${title.toLowerCase().replace(/\s+/g, "-")}`}
+    >
       {popular && (
         <div className="absolute top-0 left-0 right-0 flex justify-center -translate-y-1/2 z-10">
           <Badge className="bg-primary text-primary-foreground px-4 py-1.5 text-sm font-semibold shadow-lg">
@@ -35,11 +43,7 @@ export default function PackageCard({
       )}
       {image && (
         <div className="relative h-48 overflow-hidden rounded-t-xl">
-          <img 
-            src={image}
-            alt={title}
-            className="w-full h-full object-cover"
-          />
+          <img src={image} alt={title} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
         </div>
       )}
@@ -52,7 +56,9 @@ export default function PackageCard({
           </div>
           <div className="text-4xl font-bold text-primary">{price}</div>
         </div>
-        <p className="text-sm text-muted-foreground text-center mt-4">{description}</p>
+        <p className="text-sm text-muted-foreground text-center mt-4">
+          {description}
+        </p>
       </CardHeader>
       <CardContent className="space-y-4 flex-1">
         <ul className="space-y-2">
@@ -65,11 +71,11 @@ export default function PackageCard({
         </ul>
       </CardContent>
       <CardFooter>
-        <Button 
-          className="w-full min-h-11" 
+        <Button
+          className="w-full min-h-11"
           size="lg"
           onClick={onBook}
-          data-testid={`button-book-${title.toLowerCase().replace(/\s+/g, '-')}`}
+          data-testid={`button-book-${title.toLowerCase().replace(/\s+/g, "-")}`}
         >
           Book Now
         </Button>
