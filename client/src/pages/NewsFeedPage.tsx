@@ -22,7 +22,7 @@ import type { NewsFeedEvent } from "@shared/schema";
 
 const eventFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  videoUrl: z.string().min(1, "Video URL is required").url("Must be a valid URL"),
+  videoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   thumbnailUrl: z.string().optional(),
   date: z.string().min(1, "Date is required"),
   location: z.string().min(1, "Location is required"),
@@ -350,7 +350,7 @@ export default function NewsFeedPage() {
                 name="videoUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Video URL (YouTube embed link)</FormLabel>
+                    <FormLabel>Video URL <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
                     <FormControl>
                       <Input placeholder="https://www.youtube.com/embed/..." {...field} data-testid="input-event-video" />
                     </FormControl>
@@ -360,7 +360,7 @@ export default function NewsFeedPage() {
               />
 
               <div className="space-y-2">
-                <FormLabel>Thumbnail Image (preview before video plays)</FormLabel>
+                <FormLabel>Cover Image</FormLabel>
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -404,8 +404,8 @@ export default function NewsFeedPage() {
                     ) : (
                       <>
                         <Upload className="w-8 h-8" />
-                        <span>Click to upload thumbnail image</span>
-                        <span className="text-xs text-muted-foreground">This image shows before the video plays</span>
+                        <span>Click to upload cover image</span>
+                        <span className="text-xs text-muted-foreground">This image is displayed on the news feed</span>
                       </>
                     )}
                   </Button>
