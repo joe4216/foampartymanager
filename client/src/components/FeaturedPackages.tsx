@@ -60,7 +60,7 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
     {
       title: "Standard Glow Foam",
       price: "+$125",
-      duration: "Add-on",
+      duration: "30 min – 1 hour",
       features: [
         "UV-reactive foam solution",
         "Glows under blacklights",
@@ -73,7 +73,7 @@ export default function FeaturedPackages({ onBookClick }: FeaturedPackagesProps)
     {
       title: "Extended Glow Foam",
       price: "+$200",
-      duration: "Add-on",
+      duration: "2 hours",
       features: [
         "UV-reactive foam solution",
         "Extended glow time",
