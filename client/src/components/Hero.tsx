@@ -22,8 +22,8 @@ export default function Hero() {
         style={{ backgroundImage: `url(${heroImage})` }}
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/60" />
-      <nav className="absolute top-0 left-0 right-0 z-20 px-4 py-4">
-        <div className="max-w-7xl mx-auto flex items-start justify-between">
+      <nav className="absolute top-0 left-0 right-0 z-20 px-4 md:px-6 lg:px-8 py-4">
+        <div className="flex items-start justify-between">
           <div className="text-white font-bold text-xl font-['Poppins'] pt-2">Foam Works Party Co.</div>
           <div className="flex flex-col items-end gap-2">
             <Link href="/auth">
