@@ -3,13 +3,13 @@ import { CreditCard, Mail, Bot, Database, Server, ExternalLink } from "lucide-re
 
 export default function IntegrationsPage() {
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-6 md:space-y-8">
       <div>
-        <h1 className="text-3xl font-bold font-['Poppins'] mb-2">Integrations & Services</h1>
-        <p className="text-muted-foreground">Services powering your foam party business</p>
+        <h1 className="text-2xl md:text-3xl font-bold font-['Poppins'] mb-2">Integrations & Services</h1>
+        <p className="text-sm md:text-base text-muted-foreground">Services powering your foam party business</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
         <Card data-testid="integration-stripe">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
@@ -203,35 +203,35 @@ export default function IntegrationsPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="font-['Poppins']">Estimated Monthly Costs</CardTitle>
-          <CardDescription>Based on typical usage for a small foam party business</CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="font-['Poppins'] text-lg md:text-xl">Estimated Monthly Costs</CardTitle>
+          <CardDescription className="text-xs md:text-sm">Based on typical usage for a small foam party business</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center py-2 border-b">
-              <span>Railway Hosting</span>
-              <span className="font-medium">~$5/month</span>
+          <div className="space-y-2 md:space-y-3 text-sm md:text-base">
+            <div className="flex justify-between items-center gap-2 py-2 border-b">
+              <span className="text-muted-foreground">Railway Hosting</span>
+              <span className="font-medium shrink-0">~$5/mo</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span>Resend Emails (under 3k/mo)</span>
-              <span className="font-medium text-green-600">Free</span>
+            <div className="flex justify-between items-center gap-2 py-2 border-b">
+              <span className="text-muted-foreground">Resend Emails</span>
+              <span className="font-medium text-green-600 shrink-0">Free</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span>Neon Database (under 0.5GB)</span>
-              <span className="font-medium text-green-600">Free</span>
+            <div className="flex justify-between items-center gap-2 py-2 border-b">
+              <span className="text-muted-foreground">Neon Database</span>
+              <span className="font-medium text-green-600 shrink-0">Free</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span>OpenAI (est. 100 requests/mo)</span>
-              <span className="font-medium">~$1-3/month</span>
+            <div className="flex justify-between items-center gap-2 py-2 border-b">
+              <span className="text-muted-foreground">OpenAI (~100 req/mo)</span>
+              <span className="font-medium shrink-0">~$1-3/mo</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span>Stripe (per booking)</span>
-              <span className="font-medium">2.9% + $0.30</span>
+            <div className="flex justify-between items-center gap-2 py-2 border-b">
+              <span className="text-muted-foreground">Stripe (per booking)</span>
+              <span className="font-medium shrink-0">2.9% + $0.30</span>
             </div>
-            <div className="flex justify-between items-center py-2 font-bold text-lg">
-              <span>Estimated Total (excluding Stripe fees)</span>
-              <span>~$6-8/month</span>
+            <div className="flex justify-between items-center gap-2 py-3 font-bold text-base md:text-lg bg-muted/50 rounded-lg px-3 -mx-3">
+              <span>Total (excl. Stripe)</span>
+              <span className="text-primary shrink-0">~$6-8/mo</span>
             </div>
           </div>
         </CardContent>
