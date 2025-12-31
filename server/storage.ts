@@ -177,7 +177,8 @@ export class DatabaseStorage implements IStorage {
         paymentVerified: verified,
         verifiedAt: verified ? new Date() : null,
         verificationNotes: notes,
-        status: verified ? "confirmed" : "pending",
+        status: verified ? "confirmed" : "cancelled",
+        cancelNote: verified ? null : notes,
         amountPaid: verified ? receivedAmount : null,
       })
       .where(eq(bookings.id, id))
