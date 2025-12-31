@@ -147,6 +147,7 @@ export default function NewsFeedPage() {
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const isAtLimit = events.length >= 3;
 
   return (
     <div className="p-4 md:p-8 space-y-6 md:space-y-8">
@@ -156,13 +157,34 @@ export default function NewsFeedPage() {
             <Newspaper className="w-7 h-7" />
             News Feed Management
           </h1>
-          <p className="text-sm md:text-base text-muted-foreground">Add and manage events shown on your homepage</p>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Add and manage events shown on your homepage
+            <span className="ml-2">
+              <Badge variant={isAtLimit ? "destructive" : "secondary"} data-testid="badge-event-count">
+                {events.length}/3 events
+              </Badge>
+            </span>
+          </p>
         </div>
-        <Button onClick={handleAddNew} data-testid="button-add-event">
+        <Button 
+          onClick={handleAddNew} 
+          disabled={isAtLimit}
+          data-testid="button-add-event"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Add Event
         </Button>
       </div>
+
+      {isAtLimit && (
+        <Card className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="py-4">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              You've reached the maximum of 3 events. To add a new event, please delete an existing one first.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-12">

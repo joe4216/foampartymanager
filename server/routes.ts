@@ -1289,6 +1289,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
     try {
+      const existingEvents = await storage.getNewsFeedEvents();
+      if (existingEvents.length >= 3) {
+        res.status(400).json({ error: "Maximum of 3 events allowed. Please delete an existing event first." });
+        return;
+      }
       const validatedData = insertNewsFeedEventSchema.parse(req.body);
       const event = await storage.createNewsFeedEvent(validatedData);
       res.status(201).json(event);
