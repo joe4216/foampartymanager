@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Calendar, MapPin, Users, ThumbsUp, Share2, Loader2, PartyPopper, Link2 } from "lucide-react";
+import { Play, Calendar, MapPin, Users, Share2, Loader2, PartyPopper, Link2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SiFacebook, SiX, SiInstagram } from "react-icons/si";
@@ -180,8 +180,9 @@ export default function NewsFeed() {
                 
                 <div className="flex items-center justify-between pt-4 border-t">
                   <div className="flex items-center gap-4">
-                    <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors" data-testid={`button-like-${event.id}`}>
-                      <ThumbsUp className="w-4 h-4" />
+                    <button className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors" data-testid={`button-reaction-${event.id}`}>
+                      <PartyPopper className="w-4 h-4" />
+                      <span className="text-sm">This looks fun!</span>
                     </button>
                     <Popover>
                       <PopoverTrigger asChild>
