@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Newspaper, Plus, Pencil, Trash2, Loader2, Video, Calendar, MapPin, Users, PartyPopper } from "lucide-react";
+import { Newspaper, Plus, Pencil, Trash2, Loader2, Video, Calendar, MapPin, Users, PartyPopper, Upload, Image, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { NewsFeedEvent } from "@shared/schema";
@@ -45,6 +45,9 @@ export default function NewsFeedPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<NewsFeedEvent | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: events = [], isLoading } = useQuery<NewsFeedEvent[]>({
     queryKey: ["/api/news-feed"],
@@ -110,6 +113,52 @@ export default function NewsFeedPage() {
     },
   });
 
+  const handleThumbnailUpload = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("thumbnail", file);
+      
+      const response = await fetch("/api/news-feed/upload-thumbnail", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      
+      const result = await response.json();
+      if (result.success && result.thumbnailUrl) {
+        form.setValue("thumbnailUrl", result.thumbnailUrl);
+        setThumbnailPreview(result.thumbnailUrl);
+        toast({ title: "Image Uploaded", description: "Thumbnail uploaded successfully." });
+      } else {
+        toast({ title: "Upload Failed", description: result.error || "Failed to upload image.", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Upload Failed", description: "Failed to upload image.", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Invalid File", description: "Please select an image file.", variant: "destructive" });
+        return;
+      }
+      handleThumbnailUpload(file);
+    }
+  };
+
+  const clearThumbnail = () => {
+    form.setValue("thumbnailUrl", "");
+    setThumbnailPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleAddNew = () => {
     form.reset({
       title: "",
@@ -121,6 +170,7 @@ export default function NewsFeedPage() {
       description: "",
       category: "",
     });
+    setThumbnailPreview(null);
     setShowForm(true);
   };
 
@@ -136,6 +186,7 @@ export default function NewsFeedPage() {
       description: event.description,
       category: event.category,
     });
+    setThumbnailPreview(event.thumbnailUrl || null);
   };
 
   const onSubmit = (data: EventFormData) => {
@@ -266,6 +317,7 @@ export default function NewsFeedPage() {
         if (!open) {
           setShowForm(false);
           setEditingEvent(null);
+          setThumbnailPreview(null);
           form.reset();
         }
       }}>
@@ -302,6 +354,59 @@ export default function NewsFeedPage() {
                   </FormItem>
                 )}
               />
+
+              <div className="space-y-2">
+                <FormLabel>Thumbnail Image (preview before video plays)</FormLabel>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*"
+                  className="hidden"
+                  data-testid="input-event-thumbnail"
+                />
+                {thumbnailPreview ? (
+                  <div className="relative">
+                    <img 
+                      src={thumbnailPreview} 
+                      alt="Thumbnail preview" 
+                      className="w-full h-40 object-cover rounded-md border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={clearThumbnail}
+                      data-testid="button-remove-thumbnail"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-40 flex flex-col gap-2"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    data-testid="button-upload-thumbnail"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="w-8 h-8 animate-spin" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8" />
+                        <span>Click to upload thumbnail image</span>
+                        <span className="text-xs text-muted-foreground">This image shows before the video plays</span>
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
 
               <FormField
                 control={form.control}

@@ -1258,6 +1258,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // News Feed Event routes
+  
+  // Upload thumbnail for news feed event
+  app.post("/api/news-feed/upload-thumbnail", (req, res, next) => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    upload.single("thumbnail")(req, res, (err) => {
+      if (err) {
+        if (err instanceof multer.MulterError) {
+          if (err.code === "LIMIT_FILE_SIZE") {
+            return res.status(400).json({ error: "Image too large. Maximum size is 10MB." });
+          }
+          return res.status(400).json({ error: `Upload error: ${err.message}` });
+        }
+        return res.status(400).json({ error: err.message || "Upload failed" });
+      }
+      next();
+    });
+  }, async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        res.status(400).json({ error: "No image provided" });
+        return;
+      }
+
+      // Create uploads directory if it doesn't exist
+      const uploadsDir = path.join(process.cwd(), "uploads", "thumbnails");
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      // Save file with unique name
+      const ext = path.extname(file.originalname) || ".jpg";
+      const filename = `thumbnail_${Date.now()}${ext}`;
+      const filepath = path.join(uploadsDir, filename);
+      fs.writeFileSync(filepath, file.buffer);
+
+      // Return the URL path
+      const thumbnailUrl = `/uploads/thumbnails/${filename}`;
+      res.json({ success: true, thumbnailUrl });
+    } catch (error) {
+      console.error("Error uploading thumbnail:", error);
+      res.status(500).json({ error: "Failed to upload thumbnail" });
+    }
+  });
+
   app.get("/api/news-feed", async (req, res) => {
     try {
       const events = await storage.getNewsFeedEvents();
