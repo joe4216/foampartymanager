@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookingSchema, bookingStatusSchema } from "@shared/schema";
+import { insertBookingSchema, bookingStatusSchema, insertNewsFeedEventSchema } from "@shared/schema";
 import { setupAuth } from "./auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { analyzeVenmoReceipt, processChatMessage } from "./openai";
@@ -1254,6 +1254,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Chat error:", error);
       res.status(500).json({ error: "Failed to process chat message" });
+    }
+  });
+
+  // News Feed Event routes
+  app.get("/api/news-feed", async (req, res) => {
+    try {
+      const events = await storage.getNewsFeedEvents();
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching news feed events:", error);
+      res.status(500).json({ error: "Failed to fetch news feed events" });
+    }
+  });
+
+  app.get("/api/news-feed/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const event = await storage.getNewsFeedEvent(id);
+      if (!event) {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Error fetching news feed event:", error);
+      res.status(500).json({ error: "Failed to fetch news feed event" });
+    }
+  });
+
+  app.post("/api/news-feed", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const validatedData = insertNewsFeedEventSchema.parse(req.body);
+      const event = await storage.createNewsFeedEvent(validatedData);
+      res.status(201).json(event);
+    } catch (error) {
+      console.error("Error creating news feed event:", error);
+      res.status(400).json({ error: "Failed to create news feed event" });
+    }
+  });
+
+  app.patch("/api/news-feed/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const id = parseInt(req.params.id);
+      const event = await storage.updateNewsFeedEvent(id, req.body);
+      if (!event) {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Error updating news feed event:", error);
+      res.status(400).json({ error: "Failed to update news feed event" });
+    }
+  });
+
+  app.delete("/api/news-feed/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteNewsFeedEvent(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting news feed event:", error);
+      res.status(500).json({ error: "Failed to delete news feed event" });
     }
   });
 
