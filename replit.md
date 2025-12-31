@@ -41,6 +41,7 @@ Preferred communication style: Simple, everyday language.
 - Owner dashboard (`/owner/dashboard`) - Stats and recent bookings overview
 - Calendar view (`/owner/calendar`) - Date-based booking management
 - Kanban view (`/owner/kanban`) - Workflow-based booking management
+- News Feed (`/owner/news-feed`) - Manage events displayed on homepage
 - Shared layout wrapper for owner portal with sidebar navigation
 
 ### Backend Architecture
@@ -118,6 +119,7 @@ Preferred communication style: Simple, everyday language.
 - `users` table with fields: id, username, password, firstName, lastName, phone, email
 - `verification_codes` table with fields: id, user_id, code, expires_at, created_at, used
 - `bookings` table with fields: id, customerName, email, phone, address, partySize, packageType, eventDate, eventTime, status, notes, createdAt, paymentMethod, expectedAmount, receivedAmount, receiptImageUrl, paymentVerified, verifiedAt, verificationNotes, pendingExpiresAt, reminderSentAt, cancelNote, distanceMiles, travelFee
+- `news_feed_events` table with fields: id, title, videoUrl, thumbnailUrl, date, location, attendees, description, category, createdAt
 - Status enum: pending, confirmed, completed, cancelled
 - Payment methods: stripe, venmo
 - Serial primary key with auto-incrementing IDs
