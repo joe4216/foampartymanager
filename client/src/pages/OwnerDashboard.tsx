@@ -114,25 +114,25 @@ export default function OwnerDashboard() {
         totalGuests={totalGuests}
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
         <Card className="xl:col-span-2">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <CardTitle className="font-['Poppins'] flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-primary" />
+                <CardTitle className="font-['Poppins'] flex items-center gap-2 text-base md:text-lg">
+                  <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                   Revenue Overview
                 </CardTitle>
-                <CardDescription className="mt-1">Monthly revenue for the last 6 months</CardDescription>
+                <CardDescription className="mt-1 text-xs md:text-sm">Monthly revenue for the last 6 months</CardDescription>
               </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-primary">${totalRevenue.toLocaleString()}</div>
+              <div className="text-left sm:text-right">
+                <div className="text-xl md:text-2xl font-bold text-primary">${totalRevenue.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground">Total Revenue</div>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">
-            <div className="h-[280px] w-full">
+          <CardContent className="pt-4 px-2 md:px-6">
+            <div className="h-[220px] md:h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
@@ -176,11 +176,11 @@ export default function OwnerDashboard() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex justify-center gap-6 mt-4 pt-4 border-t">
+            <div className="flex justify-center gap-3 md:gap-6 mt-4 pt-4 border-t">
               {chartData.slice(-3).map((data) => (
-                <div key={data.month} className="text-center">
-                  <div className="text-lg font-bold">${data.revenue.toLocaleString()}</div>
-                  <div className="text-xs text-muted-foreground">{data.fullMonth}</div>
+                <div key={data.month} className="text-center px-2 md:px-0">
+                  <div className="text-sm md:text-lg font-bold">${data.revenue.toLocaleString()}</div>
+                  <div className="text-[10px] md:text-xs text-muted-foreground">{data.fullMonth}</div>
                 </div>
               ))}
             </div>
@@ -236,13 +236,13 @@ export default function OwnerDashboard() {
 
       <Card>
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div>
-              <CardTitle className="font-['Poppins'] flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" />
+              <CardTitle className="font-['Poppins'] flex items-center gap-2 text-base md:text-lg">
+                <Users className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                 Recent Bookings
               </CardTitle>
-              <CardDescription className="mt-1">Latest customer bookings</CardDescription>
+              <CardDescription className="mt-1 text-xs md:text-sm">Latest customer bookings</CardDescription>
             </div>
             <Link href="/owner/kanban">
               <Button variant="outline" size="sm" data-testid="button-view-all-bookings">
@@ -253,36 +253,36 @@ export default function OwnerDashboard() {
         </CardHeader>
         <CardContent className="pt-4">
           {recentBookings.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <PartyPopper className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No bookings yet</p>
-              <p className="text-sm">Bookings will appear here once customers start booking</p>
+            <div className="text-center py-8 md:py-12 text-muted-foreground">
+              <PartyPopper className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-4 opacity-50" />
+              <p className="text-sm md:text-base">No bookings yet</p>
+              <p className="text-xs md:text-sm">Bookings will appear here once customers start booking</p>
             </div>
           ) : (
             <div className="space-y-3">
               {recentBookings.map((booking) => (
                 <div
                   key={booking.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover-elevate transition-all"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 md:p-4 border rounded-lg hover-elevate transition-all"
                   data-testid={`recent-booking-${booking.id}`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Users className="w-5 h-5 text-primary" />
+                  <div className="flex items-center gap-3 md:gap-4 min-w-0">
+                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <Users className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                     </div>
-                    <div>
-                      <div className="font-semibold">{booking.customerName}</div>
-                      <div className="text-sm text-muted-foreground">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm md:text-base truncate">{booking.customerName}</div>
+                      <div className="text-xs md:text-sm text-muted-foreground truncate">
                         {booking.packageType} - {format(parseISO(booking.eventDate), "MMM d, yyyy")}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="font-bold text-primary">${booking.revenue}</div>
+                  <div className="flex items-center justify-between sm:justify-end gap-3 md:gap-4 pl-11 sm:pl-0">
+                    <div className="text-left sm:text-right">
+                      <div className="font-bold text-primary text-sm md:text-base">${booking.revenue}</div>
                       <div className="text-xs text-muted-foreground">{booking.partySize} guests</div>
                     </div>
-                    <Badge variant={statusVariants[booking.status] || "secondary"}>
+                    <Badge variant={statusVariants[booking.status] || "secondary"} className="shrink-0">
                       {booking.status}
                     </Badge>
                   </div>
