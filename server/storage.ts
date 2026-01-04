@@ -1,4 +1,4 @@
-import { bookings, users, stripeSettings, verificationCodes, newsFeedEvents, type Booking, type InsertBooking, type User, type InsertUser, type StripeSettings, type VerificationCode, type NewsFeedEvent, type InsertNewsFeedEvent } from "@shared/schema";
+import { bookings, users, stripeSettings, verificationCodes, newsFeedEvents, calendarSubscribers, type Booking, type InsertBooking, type User, type InsertUser, type StripeSettings, type VerificationCode, type NewsFeedEvent, type InsertNewsFeedEvent, type CalendarSubscriber, type InsertCalendarSubscriber } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, isNull, gt, desc } from "drizzle-orm";
 import session from "express-session";
@@ -70,6 +70,14 @@ export interface IStorage {
   getNewsFeedEvent(id: number): Promise<NewsFeedEvent | undefined>;
   updateNewsFeedEvent(id: number, event: Partial<InsertNewsFeedEvent>): Promise<NewsFeedEvent | undefined>;
   deleteNewsFeedEvent(id: number): Promise<boolean>;
+  
+  // Calendar subscriber methods
+  createCalendarSubscriber(subscriber: InsertCalendarSubscriber): Promise<CalendarSubscriber>;
+  getCalendarSubscribers(): Promise<CalendarSubscriber[]>;
+  getCalendarSubscriberByEmail(email: string): Promise<CalendarSubscriber | undefined>;
+  getCalendarSubscriberByToken(token: string): Promise<CalendarSubscriber | undefined>;
+  deleteCalendarSubscriber(token: string): Promise<boolean>;
+  updateSubscriberNotifiedAt(id: number): Promise<CalendarSubscriber | undefined>;
   
   sessionStore: session.Store;
 }
@@ -558,6 +566,42 @@ export class DatabaseStorage implements IStorage {
   async deleteNewsFeedEvent(id: number): Promise<boolean> {
     const result = await db.delete(newsFeedEvents).where(eq(newsFeedEvents.id, id));
     return true;
+  }
+
+  async createCalendarSubscriber(subscriber: InsertCalendarSubscriber): Promise<CalendarSubscriber> {
+    const [newSubscriber] = await db
+      .insert(calendarSubscribers)
+      .values(subscriber)
+      .returning();
+    return newSubscriber;
+  }
+
+  async getCalendarSubscribers(): Promise<CalendarSubscriber[]> {
+    return await db.select().from(calendarSubscribers);
+  }
+
+  async getCalendarSubscriberByEmail(email: string): Promise<CalendarSubscriber | undefined> {
+    const [subscriber] = await db.select().from(calendarSubscribers).where(eq(calendarSubscribers.email, email.toLowerCase()));
+    return subscriber || undefined;
+  }
+
+  async getCalendarSubscriberByToken(token: string): Promise<CalendarSubscriber | undefined> {
+    const [subscriber] = await db.select().from(calendarSubscribers).where(eq(calendarSubscribers.unsubscribeToken, token));
+    return subscriber || undefined;
+  }
+
+  async deleteCalendarSubscriber(token: string): Promise<boolean> {
+    await db.delete(calendarSubscribers).where(eq(calendarSubscribers.unsubscribeToken, token));
+    return true;
+  }
+
+  async updateSubscriberNotifiedAt(id: number): Promise<CalendarSubscriber | undefined> {
+    const [subscriber] = await db
+      .update(calendarSubscribers)
+      .set({ lastNotifiedAt: new Date() })
+      .where(eq(calendarSubscribers.id, id))
+      .returning();
+    return subscriber || undefined;
   }
 }
 
