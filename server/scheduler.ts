@@ -146,36 +146,50 @@ async function processEventReminders() {
       for (const subscriber of subscribers) {
         // Check if 48-hour reminder is due (between 47-49 hours out)
         if (subscriber.reminder48Hours && hoursUntilEvent >= 47 && hoursUntilEvent <= 49) {
-          console.log(`[Scheduler] Sending 48h reminder for booking ${booking.id} to ${subscriber.email}`);
-          await sendEventReminderEmail(
-            subscriber.email,
-            48,
-            {
-              customerName: booking.customerName,
-              eventDate: booking.eventDate,
-              eventTime: booking.eventTime,
-              packageName: formatPackageName(booking.packageType),
-              address: booking.address,
-            },
-            subscriber.unsubscribeToken
-          );
+          // Check if already sent
+          const alreadySent48h = await storage.hasReminderBeenSent(subscriber.id, booking.id, "48h");
+          if (!alreadySent48h) {
+            console.log(`[Scheduler] Sending 48h reminder for booking ${booking.id} to ${subscriber.email}`);
+            const result = await sendEventReminderEmail(
+              subscriber.email,
+              48,
+              {
+                customerName: booking.customerName,
+                eventDate: booking.eventDate,
+                eventTime: booking.eventTime,
+                packageName: formatPackageName(booking.packageType),
+                address: booking.address,
+              },
+              subscriber.unsubscribeToken
+            );
+            if (result.success) {
+              await storage.recordSentReminder(subscriber.id, booking.id, "48h");
+            }
+          }
         }
         
         // Check if 24-hour reminder is due (between 23-25 hours out)
         if (subscriber.reminder24Hours && hoursUntilEvent >= 23 && hoursUntilEvent <= 25) {
-          console.log(`[Scheduler] Sending 24h reminder for booking ${booking.id} to ${subscriber.email}`);
-          await sendEventReminderEmail(
-            subscriber.email,
-            24,
-            {
-              customerName: booking.customerName,
-              eventDate: booking.eventDate,
-              eventTime: booking.eventTime,
-              packageName: formatPackageName(booking.packageType),
-              address: booking.address,
-            },
-            subscriber.unsubscribeToken
-          );
+          // Check if already sent
+          const alreadySent24h = await storage.hasReminderBeenSent(subscriber.id, booking.id, "24h");
+          if (!alreadySent24h) {
+            console.log(`[Scheduler] Sending 24h reminder for booking ${booking.id} to ${subscriber.email}`);
+            const result = await sendEventReminderEmail(
+              subscriber.email,
+              24,
+              {
+                customerName: booking.customerName,
+                eventDate: booking.eventDate,
+                eventTime: booking.eventTime,
+                packageName: formatPackageName(booking.packageType),
+                address: booking.address,
+              },
+              subscriber.unsubscribeToken
+            );
+            if (result.success) {
+              await storage.recordSentReminder(subscriber.id, booking.id, "24h");
+            }
+          }
         }
       }
     }

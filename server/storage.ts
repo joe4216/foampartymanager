@@ -1,4 +1,4 @@
-import { bookings, users, stripeSettings, verificationCodes, newsFeedEvents, calendarSubscribers, type Booking, type InsertBooking, type User, type InsertUser, type StripeSettings, type VerificationCode, type NewsFeedEvent, type InsertNewsFeedEvent, type CalendarSubscriber, type InsertCalendarSubscriber } from "@shared/schema";
+import { bookings, users, stripeSettings, verificationCodes, newsFeedEvents, calendarSubscribers, sentReminders, type Booking, type InsertBooking, type User, type InsertUser, type StripeSettings, type VerificationCode, type NewsFeedEvent, type InsertNewsFeedEvent, type CalendarSubscriber, type InsertCalendarSubscriber } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, isNull, gt, desc } from "drizzle-orm";
 import session from "express-session";
@@ -78,6 +78,10 @@ export interface IStorage {
   getCalendarSubscriberByToken(token: string): Promise<CalendarSubscriber | undefined>;
   deleteCalendarSubscriber(token: string): Promise<boolean>;
   updateSubscriberNotifiedAt(id: number): Promise<CalendarSubscriber | undefined>;
+  
+  // Sent reminder tracking methods
+  hasReminderBeenSent(subscriberId: number, bookingId: number, reminderType: string): Promise<boolean>;
+  recordSentReminder(subscriberId: number, bookingId: number, reminderType: string): Promise<void>;
   
   sessionStore: session.Store;
 }
@@ -602,6 +606,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(calendarSubscribers.id, id))
       .returning();
     return subscriber || undefined;
+  }
+
+  async hasReminderBeenSent(subscriberId: number, bookingId: number, reminderType: string): Promise<boolean> {
+    const [existing] = await db
+      .select()
+      .from(sentReminders)
+      .where(
+        and(
+          eq(sentReminders.subscriberId, subscriberId),
+          eq(sentReminders.bookingId, bookingId),
+          eq(sentReminders.reminderType, reminderType)
+        )
+      );
+    return !!existing;
+  }
+
+  async recordSentReminder(subscriberId: number, bookingId: number, reminderType: string): Promise<void> {
+    await db
+      .insert(sentReminders)
+      .values({ subscriberId, bookingId, reminderType });
   }
 }
 

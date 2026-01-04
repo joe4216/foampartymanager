@@ -93,6 +93,14 @@ export const calendarSubscribers = pgTable("calendar_subscribers", {
   lastNotifiedAt: timestamp("last_notified_at"),
 });
 
+export const sentReminders = pgTable("sent_reminders", {
+  id: serial("id").primaryKey(),
+  subscriberId: integer("subscriber_id").notNull(),
+  bookingId: integer("booking_id").notNull(),
+  reminderType: text("reminder_type").notNull(), // "48h" or "24h"
+  sentAt: timestamp("sent_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
 });
