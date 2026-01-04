@@ -343,7 +343,7 @@ export default function BookingCalendar({ bookings, viewMode, onBookingSelect, o
                       className="text-[10px] text-muted-foreground text-center cursor-pointer hover:text-foreground"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (dayBookings[2]) onBookingSelect?.(dayBookings[2]);
+                        onDaySelect?.(day, dayBookings);
                       }}
                     >
                       +{dayBookings.length - 2} more
