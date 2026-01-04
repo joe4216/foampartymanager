@@ -27,6 +27,7 @@ interface BookingCalendarProps {
   bookings: Booking[];
   viewMode: CalendarViewMode;
   onBookingSelect?: (booking: Booking) => void;
+  onDaySelect?: (date: Date, bookings: Booking[]) => void;
 }
 
 function BookingCard({ booking, onClick }: { booking: Booking; onClick?: () => void }) {
@@ -91,7 +92,7 @@ function BookingCard({ booking, onClick }: { booking: Booking; onClick?: () => v
   );
 }
 
-export default function BookingCalendar({ bookings, viewMode, onBookingSelect }: BookingCalendarProps) {
+export default function BookingCalendar({ bookings, viewMode, onBookingSelect, onDaySelect }: BookingCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const getBookingsForDate = (date: Date) => {
@@ -314,6 +315,7 @@ export default function BookingCalendar({ bookings, viewMode, onBookingSelect }:
                 className={`min-h-[60px] md:min-h-[100px] lg:min-h-[120px] border rounded-md md:rounded-lg p-1 md:p-2 cursor-pointer hover-elevate transition-colors ${
                   isCurrentDay ? "border-primary border-2" : ""
                 } ${!isSameMonth(day, currentDate) ? "opacity-50" : ""}`}
+                onClick={() => onDaySelect?.(day, dayBookings)}
                 data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
               >
                 <div className={`text-xs md:text-sm font-semibold mb-0.5 md:mb-1 ${isCurrentDay ? "text-primary" : ""}`}>

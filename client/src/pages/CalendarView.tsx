@@ -35,6 +35,7 @@ export default function CalendarView() {
   const [reminder48Hours, setReminder48Hours] = useState(true);
   const [reminder24Hours, setReminder24Hours] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedDay, setSelectedDay] = useState<{ date: Date; bookings: Booking[] } | null>(null);
   const { toast } = useToast();
   
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
@@ -144,6 +145,7 @@ export default function CalendarView() {
         bookings={bookings} 
         viewMode={viewMode} 
         onBookingSelect={(booking) => setSelectedBooking(booking)}
+        onDaySelect={(date, dayBookings) => setSelectedDay({ date, bookings: dayBookings })}
       />
 
       <Dialog open={subscribeDialogOpen} onOpenChange={setSubscribeDialogOpen}>
@@ -315,6 +317,71 @@ export default function CalendarView() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedDay} onOpenChange={(open) => !open && setSelectedDay(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedDay && new Date(selectedDay.date).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedDay?.bookings.length === 0 
+                ? "No bookings scheduled" 
+                : `${selectedDay?.bookings.length} booking${selectedDay?.bookings.length !== 1 ? 's' : ''}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+            {selectedDay?.bookings.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No bookings scheduled for this day
+              </div>
+            ) : (
+              <div className="space-y-3 py-2">
+                {selectedDay?.bookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="border rounded-lg p-4 space-y-2 cursor-pointer hover-elevate"
+                    onClick={() => {
+                      setSelectedDay(null);
+                      setSelectedBooking(booking);
+                    }}
+                    data-testid={`day-booking-${booking.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-semibold">{booking.eventTime}</span>
+                      </div>
+                      <Badge 
+                        className={`${statusColors[booking.status as keyof typeof statusColors]} text-white border-0`}
+                      >
+                        {booking.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span>{booking.customerName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Package className="w-4 h-4" />
+                      <span>{booking.packageType}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Users className="w-4 h-4" />
+                      <span>{booking.partySize} guests</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
