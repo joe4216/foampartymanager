@@ -1,5 +1,6 @@
 import { storage } from "./storage";
-import { sendPendingBookingReminder, sendBookingCancelledEmail } from "./email";
+import { sendPendingBookingReminder, sendBookingCancelledEmail, sendEventReminderEmail } from "./email";
+import { format, parseISO, differenceInHours, addHours } from "date-fns";
 
 const SCHEDULER_INTERVAL = 60 * 60 * 1000; // Run every hour
 
@@ -79,10 +80,115 @@ async function processExpiredBookings() {
   }
 }
 
+async function processEventReminders() {
+  console.log("[Scheduler] Processing calendar subscriber event reminders...");
+  
+  try {
+    // Get all calendar subscribers
+    const subscribers = await storage.getCalendarSubscribers();
+    if (subscribers.length === 0) {
+      console.log("[Scheduler] No calendar subscribers found");
+      return;
+    }
+    
+    // Get confirmed bookings
+    const allBookings = await storage.getBookings();
+    const confirmedBookings = allBookings.filter(b => b.status === "confirmed");
+    
+    const now = new Date();
+    
+    for (const booking of confirmedBookings) {
+      // Parse event date and time
+      const eventDateStr = booking.eventDate; // Format: "January 15, 2025" or similar
+      const eventTimeStr = booking.eventTime; // Format: "2:00 PM" or similar
+      
+      // Try to construct a date from the event info
+      let eventDateTime: Date;
+      try {
+        // Try parsing various date formats
+        const dateMatch = eventDateStr.match(/(\w+)\s+(\d+),?\s*(\d{4})/);
+        if (!dateMatch) continue;
+        
+        const months: Record<string, number> = {
+          'January': 0, 'February': 1, 'March': 2, 'April': 3,
+          'May': 4, 'June': 5, 'July': 6, 'August': 7,
+          'September': 8, 'October': 9, 'November': 10, 'December': 11
+        };
+        
+        const month = months[dateMatch[1]];
+        const day = parseInt(dateMatch[2]);
+        const year = parseInt(dateMatch[3]);
+        
+        if (month === undefined) continue;
+        
+        // Parse time (e.g., "2:00 PM")
+        const timeMatch = eventTimeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        let hours = 12;
+        let minutes = 0;
+        
+        if (timeMatch) {
+          hours = parseInt(timeMatch[1]);
+          minutes = parseInt(timeMatch[2]);
+          const isPM = timeMatch[3].toUpperCase() === 'PM';
+          if (isPM && hours !== 12) hours += 12;
+          if (!isPM && hours === 12) hours = 0;
+        }
+        
+        eventDateTime = new Date(year, month, day, hours, minutes);
+      } catch (e) {
+        console.error(`[Scheduler] Failed to parse date for booking ${booking.id}:`, e);
+        continue;
+      }
+      
+      const hoursUntilEvent = differenceInHours(eventDateTime, now);
+      
+      // Send reminders to subscribers
+      for (const subscriber of subscribers) {
+        // Check if 48-hour reminder is due (between 47-49 hours out)
+        if (subscriber.reminder48Hours && hoursUntilEvent >= 47 && hoursUntilEvent <= 49) {
+          console.log(`[Scheduler] Sending 48h reminder for booking ${booking.id} to ${subscriber.email}`);
+          await sendEventReminderEmail(
+            subscriber.email,
+            48,
+            {
+              customerName: booking.customerName,
+              eventDate: booking.eventDate,
+              eventTime: booking.eventTime,
+              packageName: formatPackageName(booking.packageType),
+              address: booking.address,
+            },
+            subscriber.unsubscribeToken
+          );
+        }
+        
+        // Check if 24-hour reminder is due (between 23-25 hours out)
+        if (subscriber.reminder24Hours && hoursUntilEvent >= 23 && hoursUntilEvent <= 25) {
+          console.log(`[Scheduler] Sending 24h reminder for booking ${booking.id} to ${subscriber.email}`);
+          await sendEventReminderEmail(
+            subscriber.email,
+            24,
+            {
+              customerName: booking.customerName,
+              eventDate: booking.eventDate,
+              eventTime: booking.eventTime,
+              packageName: formatPackageName(booking.packageType),
+              address: booking.address,
+            },
+            subscriber.unsubscribeToken
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[Scheduler] Error processing event reminders:", error);
+  }
+}
+
 async function runScheduledTasks() {
   console.log("[Scheduler] Running scheduled tasks...");
   await processReminders();
   await processExpiredBookings();
+  await processEventReminders();
   console.log("[Scheduler] Scheduled tasks complete");
 }
 
