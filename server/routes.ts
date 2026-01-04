@@ -1,13 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookingSchema, bookingStatusSchema, insertNewsFeedEventSchema } from "@shared/schema";
+import { insertBookingSchema, bookingStatusSchema, insertNewsFeedEventSchema, insertCalendarSubscriberSchema } from "@shared/schema";
 import { setupAuth } from "./auth";
 import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 import { analyzeVenmoReceipt, processChatMessage } from "./openai";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
+import crypto from "crypto";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1382,6 +1383,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting news feed event:", error);
       res.status(500).json({ error: "Failed to delete news feed event" });
+    }
+  });
+
+  // Calendar subscription endpoints
+  app.post("/api/calendar-subscriptions", async (req, res) => {
+    try {
+      const { email, subscribeToUpdates, reminder48Hours, reminder24Hours } = req.body;
+      
+      if (!email) {
+        res.status(400).json({ error: "Email is required" });
+        return;
+      }
+
+      // Check if already subscribed
+      const existing = await storage.getCalendarSubscriberByEmail(email.toLowerCase());
+      if (existing) {
+        res.status(400).json({ error: "This email is already subscribed" });
+        return;
+      }
+
+      // Generate unsubscribe token
+      const unsubscribeToken = crypto.randomBytes(32).toString('hex');
+
+      const subscriber = await storage.createCalendarSubscriber({
+        email: email.toLowerCase(),
+        subscribeToUpdates: subscribeToUpdates ?? true,
+        reminder48Hours: reminder48Hours ?? true,
+        reminder24Hours: reminder24Hours ?? true,
+        unsubscribeToken,
+      });
+
+      // Send confirmation email
+      const { sendSubscriptionConfirmationEmail } = await import("./email");
+      await sendSubscriptionConfirmationEmail(email, unsubscribeToken);
+
+      res.status(201).json({ success: true, message: "Successfully subscribed to calendar updates" });
+    } catch (error) {
+      console.error("Error creating subscription:", error);
+      res.status(500).json({ error: "Failed to create subscription" });
+    }
+  });
+
+  app.get("/api/calendar-subscriptions", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      const subscribers = await storage.getCalendarSubscribers();
+      res.json(subscribers);
+    } catch (error) {
+      console.error("Error fetching subscriptions:", error);
+      res.status(500).json({ error: "Failed to fetch subscriptions" });
+    }
+  });
+
+  app.delete("/api/calendar-subscriptions/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const subscriber = await storage.getCalendarSubscriberByToken(token);
+      
+      if (!subscriber) {
+        res.status(404).json({ error: "Subscription not found" });
+        return;
+      }
+
+      await storage.deleteCalendarSubscriber(token);
+      res.json({ success: true, message: "Successfully unsubscribed" });
+    } catch (error) {
+      console.error("Error deleting subscription:", error);
+      res.status(500).json({ error: "Failed to unsubscribe" });
     }
   });
 

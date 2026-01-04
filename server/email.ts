@@ -323,3 +323,119 @@ export async function sendBookingConfirmationEmail(
     return { success: false, error: err.message || 'Failed to send email' };
   }
 }
+
+export async function sendSubscriptionConfirmationEmail(
+  email: string,
+  unsubscribeToken: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const unsubscribeUrl = `${process.env.APP_DOMAIN || 'https://foamworkspartyco.com'}/unsubscribe/${unsubscribeToken}`;
+    
+    const { data, error } = await resend.emails.send({
+      from: 'Foam Works Party Co <noreply@foamworkspartyco.com>',
+      to: email,
+      subject: 'You\'re Subscribed to Calendar Updates!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Foam Works Party Co</h2>
+          <h3 style="color: #22c55e;">You're Subscribed!</h3>
+          <p>You've successfully subscribed to calendar updates from Foam Works Party Co.</p>
+          <p>You'll receive notifications when:</p>
+          <ul style="color: #666;">
+            <li>New bookings are confirmed</li>
+            <li>Bookings are rescheduled or cancelled</li>
+            <li>48-hour reminders before events</li>
+            <li>24-hour reminders before events</li>
+          </ul>
+          <p style="color: #666; font-size: 14px; margin-top: 30px;">
+            If you'd like to unsubscribe, <a href="${unsubscribeUrl}" style="color: #3b82f6;">click here</a>.
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #999; font-size: 12px;">Foam Works Party Co - Foaming Around and Find Out</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Email send error:', err);
+    return { success: false, error: err.message || 'Failed to send email' };
+  }
+}
+
+export async function sendEventReminderEmail(
+  email: string,
+  hoursUntilEvent: number,
+  booking: {
+    customerName: string;
+    eventDate: string;
+    eventTime: string;
+    packageName: string;
+    address: string;
+  },
+  unsubscribeToken: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const unsubscribeUrl = `${process.env.APP_DOMAIN || 'https://foamworkspartyco.com'}/unsubscribe/${unsubscribeToken}`;
+    const reminderText = hoursUntilEvent === 48 ? '2 days' : '24 hours';
+    
+    const { data, error } = await resend.emails.send({
+      from: 'Foam Works Party Co <noreply@foamworkspartyco.com>',
+      to: email,
+      subject: `Reminder: Foam Party in ${reminderText}!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Foam Works Party Co</h2>
+          <h3 style="color: #3b82f6;">Event Reminder - ${reminderText} Away!</h3>
+          <p>This is a friendly reminder about an upcoming foam party:</p>
+          
+          <div style="background-color: #f4f4f4; padding: 20px; margin: 20px 0; border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Customer:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.customerName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Package:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.packageName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Date:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.eventDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; color: #666;">Time:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #ddd; font-weight: 500;">${booking.eventTime}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #666;">Location:</td>
+                <td style="padding: 8px 0; font-weight: 500;">${booking.address}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <p style="color: #666; font-size: 14px; margin-top: 30px;">
+            <a href="${unsubscribeUrl}" style="color: #999;">Unsubscribe from reminders</a>
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #999; font-size: 12px;">Foam Works Party Co - Foaming Around and Find Out</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Email send error:', err);
+    return { success: false, error: err.message || 'Failed to send email' };
+  }
+}
