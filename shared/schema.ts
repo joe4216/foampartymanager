@@ -82,6 +82,17 @@ export const newsFeedEvents = pgTable("news_feed_events", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const calendarSubscribers = pgTable("calendar_subscribers", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  subscribeToUpdates: boolean("subscribe_to_updates").default(true),
+  reminder48Hours: boolean("reminder_48_hours").default(true),
+  reminder24Hours: boolean("reminder_24_hours").default(true),
+  unsubscribeToken: text("unsubscribe_token").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastNotifiedAt: timestamp("last_notified_at"),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
 });
@@ -102,6 +113,12 @@ export const insertNewsFeedEventSchema = createInsertSchema(newsFeedEvents).omit
   likes: true,
 });
 
+export const insertCalendarSubscriberSchema = createInsertSchema(calendarSubscribers).omit({
+  id: true,
+  createdAt: true,
+  lastNotifiedAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
@@ -111,3 +128,5 @@ export type StripeSettings = typeof stripeSettings.$inferSelect;
 export type VerificationCode = typeof verificationCodes.$inferSelect;
 export type NewsFeedEvent = typeof newsFeedEvents.$inferSelect;
 export type InsertNewsFeedEvent = z.infer<typeof insertNewsFeedEventSchema>;
+export type CalendarSubscriber = typeof calendarSubscribers.$inferSelect;
+export type InsertCalendarSubscriber = z.infer<typeof insertCalendarSubscriberSchema>;
