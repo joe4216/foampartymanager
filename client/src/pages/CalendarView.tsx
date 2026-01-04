@@ -1,5 +1,6 @@
 import BookingCalendar from "@/components/BookingCalendar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Booking } from "@shared/schema";
@@ -13,11 +14,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Bell } from "lucide-react";
+import { Bell, Clock, User, Package, MapPin, Users, Phone, Mail, Calendar, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 export type CalendarViewMode = "day" | "week" | "month";
+
+const statusColors: Record<string, string> = {
+  pending: "bg-yellow-500",
+  confirmed: "bg-green-500",
+  completed: "bg-blue-500",
+  cancelled: "bg-red-500",
+};
 
 export default function CalendarView() {
   const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
@@ -26,6 +34,7 @@ export default function CalendarView() {
   const [subscribeToUpdates, setSubscribeToUpdates] = useState(true);
   const [reminder48Hours, setReminder48Hours] = useState(true);
   const [reminder24Hours, setReminder24Hours] = useState(true);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const { toast } = useToast();
   
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
@@ -131,7 +140,11 @@ export default function CalendarView() {
         </div>
       </div>
 
-      <BookingCalendar bookings={bookings} viewMode={viewMode} />
+      <BookingCalendar 
+        bookings={bookings} 
+        viewMode={viewMode} 
+        onBookingSelect={(booking) => setSelectedBooking(booking)}
+      />
 
       <Dialog open={subscribeDialogOpen} onOpenChange={setSubscribeDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -212,6 +225,96 @@ export default function CalendarView() {
               {subscribeMutation.isPending ? "Subscribing..." : "Subscribe"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedBooking} onOpenChange={(open) => !open && setSelectedBooking(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center justify-between gap-2">
+              <DialogTitle>Booking Details</DialogTitle>
+              {selectedBooking && (
+                <Badge 
+                  className={`${statusColors[selectedBooking.status as keyof typeof statusColors]} text-white border-0`}
+                >
+                  {selectedBooking.status}
+                </Badge>
+              )}
+            </div>
+            <DialogDescription>
+              {selectedBooking?.confirmationNumber && (
+                <span className="font-mono">Confirmation: {selectedBooking.confirmationNumber}</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedBooking && (
+            <div className="space-y-4 py-4">
+              <div className="grid gap-3 text-sm">
+                <div className="flex items-center gap-3">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium">{selectedBooking.customerName}</span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <span>{selectedBooking.eventDate}</span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span>{selectedBooking.eventTime}</span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <Package className="w-4 h-4 text-muted-foreground" />
+                  <span>{selectedBooking.packageType}</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span>{selectedBooking.partySize} guests</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Mail className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">{selectedBooking.email}</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">{selectedBooking.phone}</span>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <span className="text-muted-foreground">{selectedBooking.address}</span>
+                </div>
+
+                {selectedBooking.amountPaid && (
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium text-green-600">
+                      ${(selectedBooking.amountPaid / 100).toFixed(2)} paid
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {selectedBooking.notes && (
+                <div className="bg-muted rounded-md p-3 text-sm">
+                  <span className="font-medium">Notes: </span>
+                  {selectedBooking.notes}
+                </div>
+              )}
+
+              {selectedBooking.cancelNote && (
+                <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
+                  <span className="font-medium">Cancellation Note: </span>
+                  {selectedBooking.cancelNote}
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

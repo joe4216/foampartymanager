@@ -26,12 +26,14 @@ const statusVariants = {
 interface BookingCalendarProps {
   bookings: Booking[];
   viewMode: CalendarViewMode;
+  onBookingSelect?: (booking: Booking) => void;
 }
 
-function BookingCard({ booking }: { booking: Booking }) {
+function BookingCard({ booking, onClick }: { booking: Booking; onClick?: () => void }) {
   return (
     <div
-      className="border rounded-lg p-4 space-y-3"
+      className={`border rounded-lg p-4 space-y-3 ${onClick ? 'cursor-pointer hover-elevate' : ''}`}
+      onClick={onClick}
       data-testid={`booking-card-${booking.id}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -89,7 +91,7 @@ function BookingCard({ booking }: { booking: Booking }) {
   );
 }
 
-export default function BookingCalendar({ bookings, viewMode }: BookingCalendarProps) {
+export default function BookingCalendar({ bookings, viewMode, onBookingSelect }: BookingCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const getBookingsForDate = (date: Date) => {
@@ -167,7 +169,7 @@ export default function BookingCalendar({ bookings, viewMode }: BookingCalendarP
             ) : (
               <div className="space-y-4 pr-2">
                 {dayBookings.map((booking) => (
-                  <BookingCard key={booking.id} booking={booking} />
+                  <BookingCard key={booking.id} booking={booking} onClick={() => onBookingSelect?.(booking)} />
                 ))}
               </div>
             )}
@@ -234,7 +236,8 @@ export default function BookingCalendar({ bookings, viewMode }: BookingCalendarP
                       {dayBookings.map((booking) => (
                         <div
                           key={booking.id}
-                          className={`text-xs p-2 rounded ${statusColors[booking.status as keyof typeof statusColors]} text-white`}
+                          className={`text-xs p-2 rounded ${statusColors[booking.status as keyof typeof statusColors]} text-white cursor-pointer hover-elevate`}
+                          onClick={() => onBookingSelect?.(booking)}
                           data-testid={`week-event-${booking.id}`}
                         >
                           <div className="font-semibold">{booking.eventTime}</div>
@@ -322,6 +325,10 @@ export default function BookingCalendar({ bookings, viewMode }: BookingCalendarP
                       key={booking.id}
                       className={`text-[10px] md:text-xs p-1 md:p-1.5 rounded ${statusColors[booking.status as keyof typeof statusColors]} text-white cursor-pointer hover-elevate`}
                       title={`${booking.customerName} - ${booking.packageType} at ${booking.eventTime}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onBookingSelect?.(booking);
+                      }}
                       data-testid={`event-${booking.id}`}
                     >
                       <div className="font-semibold truncate">{booking.eventTime}</div>
@@ -330,7 +337,13 @@ export default function BookingCalendar({ bookings, viewMode }: BookingCalendarP
                     </div>
                   ))}
                   {dayBookings.length > 2 && (
-                    <div className="text-[10px] text-muted-foreground text-center">
+                    <div 
+                      className="text-[10px] text-muted-foreground text-center cursor-pointer hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (dayBookings[2]) onBookingSelect?.(dayBookings[2]);
+                      }}
+                    >
                       +{dayBookings.length - 2} more
                     </div>
                   )}
